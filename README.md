@@ -1,2 +1,2 @@
 # kandidatarbete
-simulering multi-type galton watson process
+multi-type galton watson process
