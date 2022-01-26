@@ -3,32 +3,32 @@
 
 vals <- c(0,1,2) # possible nr off offspring
 p <- c(0.3, 0.3, 0.4) # offspring probability
-n <- 10 # number of generations
+n <- 100 # number of generations
 
-# expected value
 mu <- sum(vals*p)
 expected <- mu^n
 
 # simulation
-simple_gw <- function(n) {
+simple_gw <- function(n, p) {
   # Z_0 = 1
   Z <- c(1, rep(0,n))
   for (i in 2:(n+1)) {
-      if (Z[i-1] > 0) {
-        Z[i] <- sum(sample(vals, size = Z[i-1], replace = T, prob = p))
-      }
+      if (Z[i-1] == 0) break
+      Z[i] <- sum(sample(vals, size = Z[i-1], replace = T, prob = p))
   }
-  return(Z)
+  return(Z[n+1])
 }
 
-# number of trials
-tr <- 10000
-sim_mu <- mean(replicate(tr, simple_gw(n)[n+1]))
 
-print("Expected value: ") 
-print(expected)
-print("Simulated value: ") 
-print(sim_mu)
+# avarage size of population after n generations
+sim_mu <- function(p, gen, trials) {
+  mean(replicate(trials, simple_gw(n,p)))
+}
+
+# probability of extinction
+ext_pr <- function(p, ext_time,  trials) {
+  sum(replicate(trials, simple_gw(n, p)) == 0)/trials
+}
 
 # multi type gw + reproduction matrix -------------------------------------
 
