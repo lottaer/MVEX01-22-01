@@ -1,5 +1,7 @@
 
 # simple gw ---------------------------------------------------------------
+library(ggplot2)
+library(tidyverse)
 
 vals <- c(0,1,2) # possible nr off offspring
 p <- c(0.3, 0.3, 0.4) # offspring probability
@@ -30,6 +32,33 @@ ext_pr <- function(p, ext_time,  trials) {
   sum(replicate(trials, simple_gw(n, p)) == 0)/trials
 }
 
+# probability generating function
+pgf <- function(s,p) {
+  vals <- c(0:(length(p)-1))
+  return(sum(s^vals*p))
+}
+
+# returns smallest positive (real) root to g(s)=s
+pgf_root <- function(p)  {
+  p[2] <- p[2]-1
+  roots <- polyroot(p)
+  real_root <- Re(roots)[abs(Im(roots)) < 1e-6]
+  return(real_root[which.min(real_root > 0)])
+}
+
+### iterated function 
+pgf_recurse <- function(x, p, n) {
+  e <- pgf(x, p)
+  i <- 1
+  while(i < n) {
+    i <- i+1
+    e <- pgf(e, p)
+  }
+  return(e)
+}
+# TODO: convergence?
+
+###########################################################################
 # multi type gw + reproduction matrix -------------------------------------
 
 library(expm)
@@ -92,6 +121,30 @@ multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
   Z <- rowSums(replicate(trials, multi_gw(p, n, k, q, hours, Z_0)))/trials
   return(Z)
 }
+                                            
+# plot test ---------------------------------------------------------------
+
+# test plot multi-type galton watson
+# save output into txt file
+
+sink(file = "multi-type_out.txt")
+multi_gw(0.5, 2, 3, 0.2 ,15,c(1,0,0,0))
+sink(file = NULL)
+
+data <- read.table("multi-type_out.txt")
+df <- data.frame(data[,2:ncol(data)])
+df$x <- 0:(nrow(df)-1)
+
+data_ggp <- data.frame(x = df$x,
+                       y = c(df$V2, df$V3, df$V4, df$V5),
+                       group = c(rep("type 0", nrow(data)),
+                                 rep("type 1", nrow(data)),
+                                 rep("type 2", nrow(data)),
+                                 rep("type 3", nrow(data))))
+
+ggp <- ggplot(data_ggp, aes(x, y, col = group)) +     
+  geom_line(size = 1)
+ggp  
 
 
 
