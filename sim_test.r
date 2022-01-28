@@ -1,14 +1,9 @@
 
+
 # simple gw ---------------------------------------------------------------
+
 library(ggplot2)
 library(tidyverse)
-
-vals <- c(0,1,2) # possible nr off offspring
-p <- c(0.3, 0.3, 0.4) # offspring probability
-n <- 100 # number of generations
-
-mu <- sum(vals*p)
-expected <- mu^n
 
 # simulation
 simple_gw <- function(n, p) {
@@ -17,25 +12,22 @@ simple_gw <- function(n, p) {
   for (i in 2:(n+1)) {
       if (Z[i-1] == 0) break
       Z[i] <- sum(sample(vals, size = Z[i-1], replace = T, prob = p))
-  }
+  } 
   return(Z[n+1])
 }
 
+mu <- function(p) {
+  sum(sapply(1:length(p), function(i) (i-1)*p[i]))
+}
 
-# avarage size of population after n generations
+# average size of population after n generations
 sim_mu <- function(p, gen, trials) {
   mean(replicate(trials, simple_gw(n,p)))
 }
 
-# probability of extinction
-ext_pr <- function(p, ext_time,  trials) {
+# simulation of probability of extinction
+ext_pr <- function(p, n,  trials) {
   sum(replicate(trials, simple_gw(n, p)) == 0)/trials
-}
-
-# probability generating function
-pgf <- function(s,p) {
-  vals <- c(0:(length(p)-1))
-  return(sum(s^vals*p))
 }
 
 # returns smallest positive (real) root to g(s)=s
@@ -46,7 +38,31 @@ pgf_root <- function(p)  {
   return(real_root[which.min(real_root > 0)])
 }
 
-### iterated function 
+# for what values of p1 and p2 does extinction occur
+# note that p needs to be a probability vector
+# creates a sz*sz grid och possible p1, p2 values
+extinct <- function(sz) {
+  pr <- seq(0,1, length.out = sz)
+  gr <- expand.grid(pr, pr)
+  p0 <- 1-rowSums(gr)
+  # remove all unfeasible combinations
+  data <- data.frame(p0, gr) %>% filter_all(all_vars(.>=0 & .<=1))
+  
+  # simulated population extinction
+  ext <- sapply(1:nrow(data), function(row) ext_pr(data[row,], 10, 1000))
+
+  pl <- ggplot(data[,2:3], aes(data[,2], data[,3])) + geom_point(aes(color = ext))
+  return(pl) # return ggplot to adjust
+  # sp3+scale_color_gradientn(colours = rainbow(10))
+}
+# TODO: graphical, add constraint
+
+# probability generating function
+pgf <- function(s,p) {
+  vals <- c(0:(length(p)-1))
+  return(sum(s^vals*p))
+}
+
 pgf_recurse <- function(x, p, n) {
   e <- pgf(x, p)
   i <- 1
@@ -56,8 +72,7 @@ pgf_recurse <- function(x, p, n) {
   }
   return(e)
 }
-# TODO: convergence?
-
+                
 ###########################################################################
 # multi type gw + reproduction matrix -------------------------------------
 
@@ -123,28 +138,29 @@ multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
 }
                                             
 # plot test ---------------------------------------------------------------
-
+                          
 # test plot multi-type galton watson
 # save output into txt file
 
 sink(file = "multi-type_out.txt")
-multi_gw(0.5, 2, 3, 0.2 ,15,c(1,0,0,0))
+multi_gw(0.1, 2, 3, 0.9, 20,c(1,0,0,0))
 sink(file = NULL)
 
 data <- read.table("multi-type_out.txt")
 df <- data.frame(data[,2:ncol(data)])
+colnames(df) <- 0:(ncol(df)-1)
 df$x <- 0:(nrow(df)-1)
 
-data_ggp <- data.frame(x = df$x,
-                       y = c(df$V2, df$V3, df$V4, df$V5),
-                       group = c(rep("type 0", nrow(data)),
-                                 rep("type 1", nrow(data)),
-                                 rep("type 2", nrow(data)),
-                                 rep("type 3", nrow(data))))
+df_long <- df %>% gather(key = "Type", value = "size", -x)
 
-ggp <- ggplot(data_ggp, aes(x, y, col = group)) +     
-  geom_line(size = 1)
-ggp  
+ggp <- ggplot(df_long, aes(x, size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + theme_light()
+ggp  + theme(
+  aspect.ratio = 1,
+  legend.text = element_text(size = 15),
+  legend.title = element_text(size = 15, face = 'bold')
+)
+
+#ggsave(file="test.svg", plot = ggp)
 
 
 
