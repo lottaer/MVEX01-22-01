@@ -140,27 +140,43 @@ multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
 # plot test ---------------------------------------------------------------
                           
 # test plot multi-type galton watson
-# save output into txt file
+# multi gw dataframe
+multi_gw_df <- function(p, n, k, q, hours, Z_0) {
+  Z_mat <- matrix(0,hours+1, k+1)
+  Z_mat[1,] <- Z_0
+  for(i in 2:(hours+1)){
+    # extinction Z_t is zero vector
+    if(all(Z_mat==0)) break
+    # for all types that exist in this timestep run M_row
+    Z_mat[i,] <- rowSums(sapply(which(Z_mat[i-1,] != 0), function(k_) { 
+      rowSums(replicate(Z_mat[i-1,k_], M_row(k_-1, p, n, k, q)))
+    }))
+  }
+  # TODO: convert to correct data frame
+  return(to_dataframe(Z_mat))
+}
 
-sink(file = "multi-type_out.txt")
-multi_gw(0.1, 2, 3, 0.9, 20,c(1,0,0,0))
-sink(file = NULL)
+# convert to right format (long instead of wide)
+to_dataframe <- function(Z) {
+  df = as.data.frame(Z)
+  colnames(df) <- 0:(ncol(df)-1)
+  df$x <- 0:(nrow(df)-1)
+  df_long <- df %>% gather(key = "Type", value = "Size", -x)
+  return(df_long)
+}
 
-data <- read.table("multi-type_out.txt")
-df <- data.frame(data[,2:ncol(data)])
-colnames(df) <- 0:(ncol(df)-1)
-df$x <- 0:(nrow(df)-1)
-
-df_long <- df %>% gather(key = "Type", value = "size", -x)
-
-ggp <- ggplot(df_long, aes(x, size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + theme_light()
-ggp  + theme(
-  aspect.ratio = 1,
-  legend.text = element_text(size = 15),
-  legend.title = element_text(size = 15, face = 'bold')
-)
-
-#ggsave(file="test.svg", plot = ggp)
+# plot using ggplot2
+multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
+  df_long <- multi_gw_df(p, n, k, q, hours, Z_0)
+  ggp <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + theme_light()
+  ggp  + theme(
+    aspect.ratio = 1,
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15, face = 'bold')
+  )
+  ggp
+  # TODO: labels, save option
+}
 
 
 
