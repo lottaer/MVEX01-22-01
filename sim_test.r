@@ -1,27 +1,32 @@
-
-
 # simple gw ---------------------------------------------------------------
 
 library(ggplot2)
 library(tidyverse)
 
-# simulation
+# PARAMS:
+# n = number of generations
+# p = probability vector (offspring distribution)
+# trials = number of trials in simulation
+# sz = grid size
+
+# simulation if simple galton watson process
 simple_gw <- function(n, p) {
   # Z_0 = 1
   Z <- c(1, rep(0,n))
   for (i in 2:(n+1)) {
       if (Z[i-1] == 0) break
-      Z[i] <- sum(sample(vals, size = Z[i-1], replace = T, prob = p))
+      Z[i] <- sum(sample(0:(length(p)-1), size = Z[i-1], replace = T, prob = p))
   } 
   return(Z[n+1])
 }
 
+# rate of reproduction (m-value)
 mu <- function(p) {
   sum(sapply(1:length(p), function(i) (i-1)*p[i]))
 }
 
-# average size of population after n generations
-sim_mu <- function(p, gen, trials) {
+# simulated m value
+sim_mu <- function(p, n, trials) {
   mean(replicate(trials, simple_gw(n,p)))
 }
 
@@ -39,23 +44,25 @@ pgf_root <- function(p)  {
 }
 
 # for what values of p1 and p2 does extinction occur
-# note that p needs to be a probability vector
-# creates a sz*sz grid och possible p1, p2 values
-extinct <- function(sz) {
+extinct <- function(sz, n, trials) {
   pr <- seq(0,1, length.out = sz)
+  # creates a sz*sz grid och possible p1, p2 values
   gr <- expand.grid(pr, pr)
+  # p0 = 1-p1-p2
   p0 <- 1-rowSums(gr)
   # remove all unfeasible combinations
   data <- data.frame(p0, gr) %>% filter_all(all_vars(.>=0 & .<=1))
   
-  # simulated population extinction
-  ext <- sapply(1:nrow(data), function(row) ext_pr(data[row,], 10, 1000))
+  # simulated population extinction for all possible points
+  ext <- sapply(1:nrow(data), function(row) ext_pr(data[row,], n, trials))
 
   pl <- ggplot(data[,2:3], aes(data[,2], data[,3])) + geom_point(aes(color = ext))
-  return(pl) # return ggplot to adjust
+  pl
   # sp3+scale_color_gradientn(colours = rainbow(10))
 }
 # TODO: graphical, add constraint
+
+### iterated function -------------------------------------------------------
 
 # probability generating function
 pgf <- function(s,p) {
@@ -63,6 +70,7 @@ pgf <- function(s,p) {
   return(sum(s^vals*p))
 }
 
+# iterated function
 pgf_recurse <- function(x, p, n) {
   e <- pgf(x, p)
   i <- 1
