@@ -12,10 +12,10 @@ library(tidyverse)
 # simulation if simple galton watson process
 simple_gw <- function(n, p) {
   # Z_0 = 1
-  Z <- c(1, rep(0,n))
+  Z <- c(1, rep(0,n+1))
   for (i in 2:(n+1)) {
-      if (Z[i-1] == 0) break
-      Z[i] <- sum(sample(0:(length(p)-1), size = Z[i-1], replace = T, prob = p))
+    if (Z[i-1] == 0) break
+    Z[i] <- sum(sample(0:(length(p)-1), size = Z[i-1], replace = T, prob = p))
   } 
   return(Z[n+1])
 }
