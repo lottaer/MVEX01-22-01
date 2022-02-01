@@ -43,24 +43,27 @@ pgf_root <- function(p)  {
   return(real_root[which.min(real_root > 0)])
 }
 
+### Study of parameters ---------------------------------------------------
+             
 # for what values of p1 and p2 does extinction occur
-extinct <- function(sz, n, trials) {
+ext_pr_grid <- function(sz, n, trials) {
   pr <- seq(0,1, length.out = sz)
-  # creates a sz*sz grid och possible p1, p2 values
-  gr <- expand.grid(pr, pr)
-  # p0 = 1-p1-p2
-  p0 <- 1-rowSums(gr)
+  gr <- expand.grid(pr, pr) # creates a sz*sz grid och possible p1, p2 values
+  p0 <- 1-rowSums(gr)  # p0 = 1-p1-p2
   # remove all unfeasible combinations
   data <- data.frame(p0, gr) %>% filter_all(all_vars(.>=0 & .<=1))
-  
+  colnames(data) <- c('p0', 'p1', 'p2')
   # simulated population extinction for all possible points
-  ext <- sapply(1:nrow(data), function(row) ext_pr(data[row,], n, trials))
-
-  pl <- ggplot(data[,2:3], aes(data[,2], data[,3])) + geom_point(aes(color = ext))
-  pl
-  # sp3+scale_color_gradientn(colours = rainbow(10))
+  data$Q <- sapply(1:nrow(data), function(row) ext_pr(data[row,], n, trials))
+  return(data)
 }
-# TODO: graphical, add constraint
+
+library("RColorBrewer")
+gradient_plot <- function(data) {
+  eq <- function(x) {0.5*(1-x)}
+  pl <- ggplot(data, aes(x = p1, y = p2, color = Q)) + stat_function(fun=eq, size = 1) +  geom_point() + scale_color_gradientn(colours = c("white", "yellow", "orange", "darkred"))
+  pl
+}
 
 ### iterated function -------------------------------------------------------
 
