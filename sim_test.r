@@ -149,7 +149,9 @@ multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
 }
                                             
 # plot test ---------------------------------------------------------------
-                          
+
+library(patchwork)
+
 # test plot multi-type galton watson
 # multi gw dataframe
 multi_gw_df <- function(p, n, k, q, hours, Z_0) {
@@ -163,12 +165,11 @@ multi_gw_df <- function(p, n, k, q, hours, Z_0) {
       rowSums(replicate(Z_mat[i-1,k_], M_row(k_-1, p, n, k, q)))
     }))
   }
-  # TODO: convert to correct data frame
-  return(to_dataframe(Z_mat))
+  return(Z_mat)
 }
 
 # convert to right format (long instead of wide)
-to_dataframe <- function(Z) {
+to_long <- function(Z) {
   df = as.data.frame(Z)
   colnames(df) <- 0:(ncol(df)-1)
   df$x <- 0:(nrow(df)-1)
@@ -176,17 +177,27 @@ to_dataframe <- function(Z) {
   return(df_long)
 }
 
+type_frequency <- function(Z) {
+  row_sums <- rowSums(Z)
+  freq <- sapply(1:(length(row_sums)), function(r) Z[r, 1]/row_sums[r])
+  df <- as.data.frame(freq)
+  df$x <- 0:(nrow(df)-1)
+  return(df)
+}
+
 # plot using ggplot2
 multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
-  df_long <- multi_gw_df(p, n, k, q, hours, Z_0)
-  ggp <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + theme_light()
-  ggp  + theme(
-    aspect.ratio = 1,
-    legend.text = element_text(size = 15),
-    legend.title = element_text(size = 15, face = 'bold')
-  )
-  ggp
-  # TODO: labels, save option
+  
+  theme_set(theme_minimal())
+  
+  df_wide <- multi_gw_df(p, n, k, q, hours, Z_0)
+  df_long <- to_long(df_wide)
+  type0 <- type_frequency(df_wide)
+  pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + theme_light()
+  pl2 <- ggplot(type0, aes(x, freq)) + geom_line(size = 1, color = 'palegreen4')
+ 
+  pl1 + pl2
+  
 }
 
 
