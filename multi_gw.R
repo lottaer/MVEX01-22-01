@@ -113,15 +113,20 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
   
   df_wide <- multi_gw_df(p, n, k, q, hours, Z_0)
   df_long <- to_long(df_wide)
+  
+  M_analytic <- type_mat(p, n, k, q)
+  stable_dist <- pf_eigen(M_analytic)[[2]]
+  
   type_long <- to_long(type_frequency(df_wide))
   pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
-  pl2 <- ggplot(type_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + labs(y = "Proportion")
- 
+  pl2 <- ggplot(type_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey')
   pl1 + pl2
   
 }
 
 ######## Find critical value for (p,q) (function of p)
+
+## TODO: find pf eigenvector and look at stable distribution
 
 type_mat <- function(p,n,k,q) {
   # M = qA + B
@@ -140,21 +145,27 @@ b_row <- function(i, n, k, q) {
   b <- c(rep(0,k+1))
   if(i+n <= k) {
     b[i+n+1] <- 1-q
-    print(b)
   }
-  b
+  return(b)
 }
 
-# perron frobenius eigenvalue
+# perron frobenius eigenvalue and eigenvector
 pf_eigen <- function(M) {
-  eigs = eigen(M, only.values =T)$values
-  max(Re(eigs[abs(Im(eigs)) < 1e-6]))
+  eigs = eigen(t(M))
+  vals <- eigs$values
+  vecs <- eigs$vectors
+  ind <- which.max(Re(vals[abs(Im(vals)) < 1e-6]))
+  return(list(vals[ind], c(normalize(vecs[,ind]))))
+}
+
+normalize <- function(vec) {
+  return(vec/sum(vec))
 }
 
 
 library("pracma")
 critical <- function(p, n, k) {
-  qs <- function(q) { abs(pf_eigen(type_mat(p, n, k, q))-1)}
+  qs <- function(q) { abs(pf_eigen(type_mat(p, n, k, q))[[1]]-1)}
   optimize(qs, lower = 0, upper = 1)$minimum
 }
 
@@ -168,7 +179,7 @@ critical_df <- function(n,k) {
 
 critical_pl <- function(df) {
   pl <- ggplot(df, aes(sq, qs)) + geom_line(size = 1.2) 
-  pl + ggtitle("Kritiskt q värde") + xlab("p") + ylab("q")
+  pl + ggtitle("Kritiskt q vÃ¤rde") + xlab("p") + ylab("q")
 }
 
 
