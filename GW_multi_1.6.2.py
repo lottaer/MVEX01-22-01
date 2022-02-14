@@ -56,6 +56,36 @@ def simGenProt(dstart,p,n,k,q,hour):
 
 
 
+def calcAVG(totvec,tot, it, hour):
+    avgvec = []
+    for i in range(len(totvec[0])):
+        sum = 0
+        for j in range(it):
+            sum += totvec[j][i]
+        sum = sum/it
+        avgvec.append(sum)
+
+    print(avgvec)
+    x1 = np.array(avgvec)
+    y1= np.linspace(1,hour,num=hour-1)
+
+    #RÄknar ut genomsnitt av antal celler i varje åldersgrupp
+    avgquote = []
+    for age in avgvec:
+        avgquote.append(age/(tot/it))
+
+
+    # Tar bort de under 1% av åldersfördelningen innan det grafas
+    newavg = []
+    for i in avgquote:
+        if i > 0.01:
+          newavg.append(i)
+    x2 = np.array(newavg)
+    y2= np.linspace(1,len(newavg),num=len(newavg))
+    return x2,y2
+
+
+
 def main():
     # n = 0 och q = 1.0 ger 1024 celler stämmer alltså!
     iteration = 10000 #Antal simulringar
@@ -64,7 +94,7 @@ def main():
     for it in range(iteration):
         hour = 15 #dstart är vilken typ du start med, hour timmar du kör
                     #(dstart,p,n,k,q,hours):
-        d= simGenProt(0,0.7,2,4,0.7,hour)
+        d= simGenProt(0,0.1,2,4,0.7,hour)
         agevec = []
         for i in range(hour):
             agevec.append(0)
@@ -77,33 +107,13 @@ def main():
         del agevec[0]
         totvec.append(agevec)
 
-    #Räknar ut genomsnitt av varje ålder
+
     print(tot/iteration)
-    avgvec = []
-    for i in range(len(totvec[0])):
-        sum = 0
-        for j in range(iteration):
-            sum += totvec[j][i]
-        sum = sum/iteration
-        avgvec.append(sum)
-
-    print(avgvec)
-    x1 = np.array(avgvec)
-    y1= np.linspace(1,hour,num=hour-1)
-
-    #RÄknar ut genomsnitt av antal celler i varje åldersgrupp
-    avgquote = []
-    for age in avgvec:
-        avgquote.append(age/(tot/iteration))
+    #Räknar ut genomsnitt av varje ålder
+    x2,y2 = calcAVG(totvec,tot,iteration,hour)
 
 
-    # Tar bort de under 1% av åldersfördelningen innan det grafas
-    newavg = []
-    for i in avgquote:
-        if i > 0.01:
-          newavg.append(i)
-    x2 = np.array(newavg)
-    y2= np.linspace(1,len(newavg),num=len(newavg))
+
 
 
     #Gör grafer
