@@ -64,7 +64,7 @@ def main():
     for it in range(iteration):
         hour = 15 #dstart är vilken typ du start med, hour timmar du kör
                     #(dstart,p,n,k,q,hours):
-        d= simGenProt(0,0.8,2,4,0.7,hour)
+        d= simGenProt(0,0.7,2,4,0.7,hour)
         agevec = []
         for i in range(hour):
             agevec.append(0)
@@ -107,9 +107,17 @@ def main():
 
 
     #Gör grafer
-    fig, axs = plt.subplots(2)
-    axs[0].plot(y1,x1,'ro')
-    axs[1].plot(x2,y2,'bo')
+    #fig, axs = plt.subplots(1)
+    #axs[0].plot(x1,y1,'ro')
+    print(x2)
+    print(np.sum(x2))
+    fig = plt.figure()
+    #ax = fig.add_axes([0,0,1,len(x2)])
+    plt.ylabel("Ålder av celler")
+    plt.xlabel("Kvot av cell med ålder i mot hela populationen")
+    plt.title("Åldersfördelning vid flertyp-GW")
+
+    plt.plot(x2,y2,'bo')
 
 
     plt.show()
