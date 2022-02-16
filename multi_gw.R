@@ -114,27 +114,30 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
   df_wide <- multi_gw_df(p, n, k, q, hours, Z_0)
   df_long <- to_long(df_wide)
   
-  M_analytic <- type_mat(p, n, k, q)
-  stable_dist <- pf_eigen(M_analytic)[[2]]
+  M_analytic <- type_mat(p, n, k, q,1)
+  stable_dist <- round(pf_eigen(M_analytic)[[2]], digits = 3)
+  print(stable_dist)
   
   type_long <- to_long(type_frequency(df_wide))
   pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
-  pl2 <- ggplot(type_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) + labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey')
+  pl2 <- ggplot(type_long, aes(x, Size)) + 
+    geom_line(aes(color = Type, group = Type), size = 1.2) + 
+    labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey',size=0.8) +
+    scale_y_continuous(breaks = stable_dist)
+
   pl1 + pl2
   
 }
 
 ######## Find critical value for (p,q) (function of p)
 
-## TODO: find pf eigenvector and look at stable distribution
-
-type_mat <- function(p,n,k,q) {
+type_mat <- function(p,n,k,q,hours) {
   # M = qA + B
   M <- matrix(0, k+1, k+1)
   for(i in 0:k) {
     M[i+1,] <- q*type_row(i, p, n, k) + b_row(i,n,k,q)
   }
-  M
+  return(M %^% hours)
 }
 
 type_row <- function(i, p, n, k) {
@@ -155,7 +158,7 @@ pf_eigen <- function(M) {
   vals <- eigs$values
   vecs <- eigs$vectors
   ind <- which.max(Re(vals[abs(Im(vals)) < 1e-6]))
-  return(list(vals[ind], c(normalize(vecs[,ind]))))
+  return(list(vals[ind], c(normalize(Re(vecs[,ind])))))
 }
 
 normalize <- function(vec) {
@@ -165,23 +168,62 @@ normalize <- function(vec) {
 
 library("pracma")
 critical <- function(p, n, k) {
-  qs <- function(q) { abs(pf_eigen(type_mat(p, n, k, q))[[1]]-1)}
+  qs <- function(q) { abs(pf_eigen(type_mat(p, n, k, q,1))[[1]]-1)}
   optimize(qs, lower = 0, upper = 1)$minimum
 }
 
 critical_df <- function(n,k) {
-  sq <- seq(0,1,by=0.01)
-  qs <- sapply(sq, function(p) critical(p,n,k))
-  df <- as.data.frame(qs)
-  df$sq <- sq
+  p <- seq(0,1,by=0.01)
+  qcrit <- sapply(p, function(p) critical(p,n,k))
+  df <- as.data.frame(qcrit)
+  df$p <- p
   return(df)
 }
 
-critical_pl <- function(df) {
-  pl <- ggplot(df, aes(sq, qs)) + geom_line(size = 1.2) 
-  pl + ggtitle("Kritiskt q värde") + xlab("p") + ylab("q")
+critical_pl <- function(n,k) {
+  df <- critical_df(n,k)
+  ggplot(df, aes(p, qcrit)) +
+    geom_line(size = 1.2) +
+    ggtitle("Kritiskt q värde") + 
+    xlab("p") + ylab("q") 
 }
 
+critical_pls <- function(n,k) {
+  
+  theme_set(theme_minimal())
+  
+  df <- critical_df(n, k[1])
+  df$k <- k[1]
+  for(i in 2:length(k)) {
+    df2 <- critical_df(n,k[i])
+    df2$k <- k[i]
+    df <- rbind(df, df2)
+  }
+  ggplot(df, aes(p, qcrit, color = factor(k))) +
+    geom_line(size = 1.2) +
+    ggtitle("Kritiskt q värde") + 
+    xlab("p") + ylab("q") +
+    coord_fixed(xlim = c(0,1), ylim = c(0,1))
+}
+
+## Gamma
+
+# inte färdig 
+age_sim <- function(p, n, k, q, hours, Z_0, trials) {
+  
+  theme_set(theme_minimal())
+  
+  # multi gw returns col vectors
+  Z <- rowSums(replicate(trials, age_prop(p, n, k, q, hours, Z_0)))
+  params <- fitdistr(rep(0:hours, times=Z), "gamma")$estimate
+  scaled <- Z/sum(Z);
+  df <- as.data.frame(scaled)
+  df$x <- 0:hours
+  
+  #curve(dgamma(x, shape = params[1], rate = params[2]), from = 0, to = 10)
+  ggplot(data = df, aes(x = x, y = scaled)) + geom_bar(stat="identity") +
+    geom_function(fun = dgamma, args = list(shape = params[1], rate = params[2]))
+}
 
 
 
