@@ -3,8 +3,14 @@
 library(expm)
 library(ggplot2)
 library(tidyverse)
+library("pracma")
+library(patchwork)
+library('MASS')
+library('easyGgplot2')
 
-# estimate M trials time and take average
+### Section: Simulation
+
+# simulation of the reproduction matrix
 M_est <- function(p, n, k, q, hours, trials) {
   M <- Reduce('+', lapply(1:trials, function(i) M_mat(p, n, k, q)))/trials
   return(M %^% hours)
@@ -18,7 +24,7 @@ M_mat <- function(p, n, k, q) {
   }
   return(M)
 }
-
+# matrix row (currently using C++ function instead)
 M_row <- function(i, p, n, k, q) {
   
   M_i <- c(rep(0, k+1))
@@ -44,6 +50,7 @@ M_row <- function(i, p, n, k, q) {
   return(M_i)
 }
 
+# simulate the MGW, returns the last generation
 multi_gw <- function(p, n, k, q, hours, Z_0){
   Z <- Z_0
   print(Z_0)
@@ -56,7 +63,7 @@ multi_gw <- function(p, n, k, q, hours, Z_0){
     }))
     print(Z)
   }
-  # return(Z)
+  return(Z)
 } 
 
 # repeat multi type gw x nr of times and take mean
@@ -67,9 +74,7 @@ multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
 }
 
 
-# plot test ---------------------------------------------------------------
-
-library(patchwork)
+### Section: plots for MGW
 
 # test plot multi-type galton watson
 # multi gw dataframe
@@ -82,10 +87,16 @@ multi_gw_df <- function(p, n, k, q, hours, Z_0) {
     if(all(Z_mat==0)) break
     # for all types that exist in this timestep run M_row
     Z_mat[i,] <- rowSums(sapply(which(Z_mat[i-1,] != 0), function(k_) { 
-      rowSums(replicate(Z_mat[i-1,k_], M_row(k_-1, p, n, k, q)))
+      rowSums(replicate(Z_mat[i-1,k_], Z_t(k_-1, p, n, k, q)))
     }))
   }
   return(Z_mat)
+}
+
+# Work in progress: take mean of simulation
+multi_gw_df_mean <- function(p, n, k, q, hours, Z_0, trials) {
+  replicate(trials, multi_gw_df(p, n, k, q, hours, Z_0))
+  Reduce('+', lapply(1:trials, function(i) multi_gw_df(p, n, k, q, hours, Z_0)))/trials
 }
 
 # convert to right format (long instead of wide)
@@ -119,18 +130,20 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
   print(stable_dist)
   
   type_long <- to_long(type_frequency(df_wide))
-  pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
+  #pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
   pl2 <- ggplot(type_long, aes(x, Size)) + 
     geom_line(aes(color = Type, group = Type), size = 1.2) + 
     labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey',size=0.8) +
     scale_y_continuous(breaks = stable_dist)
 
-  pl1 + pl2
+  #pl1 + pl2
+  pl2
   
 }
 
-######## Find critical value for (p,q) (function of p)
+### Section: Numerical
 
+# calculated the reproduction matrix
 type_mat <- function(p,n,k,q,hours) {
   # M = qA + B
   M <- matrix(0, k+1, k+1)
@@ -140,10 +153,11 @@ type_mat <- function(p,n,k,q,hours) {
   return(M %^% hours)
 }
 
+# build the matrix from rows
 type_row <- function(i, p, n, k) {
   sapply(0:k, function(j) dbinom(i+n-j, n+i, p) + dbinom(j, n+i, p))
 }
-
+# if needed add the B matrix
 b_row <- function(i, n, k, q) {
   b <- c(rep(0,k+1))
   if(i+n <= k) {
@@ -165,13 +179,13 @@ normalize <- function(vec) {
   return(vec/sum(vec))
 }
 
-
-library("pracma")
+# minimization of rho - 1
 critical <- function(p, n, k) {
   qs <- function(q) { abs(pf_eigen(type_mat(p, n, k, q,1))[[1]]-1)}
   optimize(qs, lower = 0, upper = 1)$minimum
 }
 
+# results to data frame to be aple to plot
 critical_df <- function(n,k) {
   p <- seq(0,1,by=0.01)
   qcrit <- sapply(p, function(p) critical(p,n,k))
@@ -180,6 +194,7 @@ critical_df <- function(n,k) {
   return(df)
 }
 
+# plots the critical q value as a function of p
 critical_pl <- function(n,k) {
   df <- critical_df(n,k)
   ggplot(df, aes(p, qcrit)) +
@@ -188,6 +203,7 @@ critical_pl <- function(n,k) {
     xlab("p") + ylab("q") 
 }
 
+# plots several curves in the same graph
 critical_pls <- function(n,k) {
   
   theme_set(theme_minimal())
@@ -206,33 +222,48 @@ critical_pls <- function(n,k) {
     coord_fixed(xlim = c(0,1), ylim = c(0,1))
 }
 
-## Gamma
+## Section: Age dependent process
 
-# inte färdig 
+# find distribution of ages among mother cells
 age_sim <- function(p, n, k, q, hours, Z_0, trials) {
-  
-  theme_set(theme_minimal())
-  
-  # multi gw returns col vectors
-  Z <- rowSums(replicate(trials, age_prop(p, n, k, q, hours, Z_0)))
-  params <- fitdistr(rep(0:hours, times=Z), "gamma")$estimate
+  rowSums(replicate(trials, age_prop(p, n, k, q, hours, Z_0)))
+}
+
+# convert to distribution
+age_df <- function(Z) {
   scaled <- Z/sum(Z);
   df <- as.data.frame(scaled)
   df$x <- 0:hours
-  
-  #curve(dgamma(x, shape = params[1], rate = params[2]), from = 0, to = 10)
-  ggplot(data = df, aes(x = x, y = scaled)) + geom_bar(stat="identity") +
-    geom_function(fun = dgamma, args = list(shape = params[1], rate = params[2]))
+  return(df)
 }
 
+# fit gamma disribution to simulated data
+gamma_ML <- function(Z) {
+  fitdistr(rep(0:(length(Z)-1), times=Z), "gamma")$estimate
+}
 
+# TODO: Fix gamma-parameters
+age_pl <- function(p, n, k, q, hours, Z_0, trials) {
+  
+  theme_set(theme_minimal())
+  
+  # run the simulation
+  Z <- sapply(p, function(p_) rowSums(replicate(trials, age_prop(p_, n, k, q, hours, Z_0))))
+  df <- as.data.frame(sapply(1:ncol(Z), function(i) Z[,i]/sum(Z[,i])))
+  # print(Z)
 
-
-
-
-
-
-
+  # ml estimation of gamma parameters
+  # params <- sapply(1:ncol(Z), function(i) fitdistr(rep(c(0.001, 1:hours), times=Z[,i]), "gamma")$estimate)
+  #df <- as.data.frame(Z)
+  colnames(df) <- p
+  df$x <- 0:hours
+  df_long <- df %>% gather(key = "pvalue", value = "count", -x)
+  
+  ggplot(df_long, aes(x, count)) +
+    geom_line(aes(color = pvalue, group = pvalue), size = 1) 
+     # geom_function(fun = dgamma, args = list(shape = params[1,1], rate = params[2,1]), size = 1) + 
+     # geom_function(fun = dgamma, args = list(shape = params[1,2], rate = params[2,2]), size = 1)
+}
 
 
 
