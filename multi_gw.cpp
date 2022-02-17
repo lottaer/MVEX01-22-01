@@ -30,6 +30,10 @@ NumericVector age_prop(double p, int n, int k, double q, int hours, int st_type)
         if(def <= k) {
           Z.push_front({ def, j });
         }
+         // The cell dies immediately
+        else {
+          ages[0]++;
+        }
       }
       if(def_m <= k){
         it->type = def_m;
