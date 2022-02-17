@@ -49,6 +49,25 @@ NumericVector age_prop(double p, int n, int k, double q, int hours, int st_type)
   return ages;
 }
 
+//[[Rcpp::export]]
+NumericVector Z_t(int i, double p, int n, int k, double q) {
+  NumericVector Z (k+1);
+  double U = R::runif(0,1);
+  int def_m = i + n;
+  if(U < q) {
+    int def = R::rbinom(def_m, p);
+    def_m -= def;
+    // daughter cell
+    if(def <= k){
+      Z[def]++;
+    }
+  }
+  if(def_m <= k) {
+    Z[def_m]++;
+  }
+  return(Z);
+}
+
 /**
 // [[Rcpp::export]]
 NumericVector a_row(int i, double p, int n, int k) {
