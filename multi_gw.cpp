@@ -68,22 +68,17 @@ void Z_def(int i, double p, int n, int k, double q, NumericMatrix::Row Z) {
   }
 }
 
-// TODO: skriv ihop denna med Z_mat
-void Z_t(double p, int n, int k, double q, NumericMatrix::Row curr, NumericMatrix::Row nxt) {
-  for(int i = 0; i <= k; i++) {
-    for(int j = 0; j < curr[i]; j++) {
-      Z_def(i, p, n, k, q, nxt);
-    }
-  }
-}
-
 // runs the whole simulation
 //[[Rcpp::export]]
 NumericMatrix Z_mat(double p, int n, int k, double q, int hours, NumericVector start) {
   NumericMatrix Z_m (hours+1, k+1);
   Z_m(0, _) = start;
-  for(int i = 1; i <= hours; i++) {
-    Z_t(p, n, k, q, Z_m(i-1,_), Z_m(i,_));
+  for(int gen = 1; gen <= hours; gen++) {
+    for(int i = 0; i <= k; i++) {
+      for(int j = 0; j < Z_m(gen-1, i); j++) {
+        Z_def(i, p, n, k, q, Z_m(gen,_));
+      }
+    }
   }
   return(Z_m);
 }
