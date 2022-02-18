@@ -18,6 +18,10 @@ M_est <- function(p, n, k, q, hours, trials) {
 
 # simulation of multi gw, takes mean of trials simulations
 multi_gw_mean <- function(p, n, k, q, hours, Z_0, trials) {
+  if(length(Z_0) != k+1) {
+    print("Enter starting vector of correct length")
+    return(0)
+  }
   Reduce('+', lapply(1:trials, function(i) Z_mat(p, n, k, q, hours, Z_0)))/trials
 }
 
