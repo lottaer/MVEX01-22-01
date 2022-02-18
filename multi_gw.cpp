@@ -11,6 +11,8 @@ struct cell {
   int gen;
 };
 
+// New simulation - we remember the ages of cells
+
 //[[Rcpp::export]]
 NumericVector age_prop(double p, int n, int k, double q, int hours, int st_type){
   // some starting population
@@ -30,7 +32,7 @@ NumericVector age_prop(double p, int n, int k, double q, int hours, int st_type)
         if(def <= k) {
           Z.push_front({ def, j });
         }
-         // The cell dies immediately
+        // The cell dies immediately
         else {
           ages[0]++;
         }
@@ -49,9 +51,9 @@ NumericVector age_prop(double p, int n, int k, double q, int hours, int st_type)
   return ages;
 }
 
-//[[Rcpp::export]]
-NumericVector Z_t(int i, double p, int n, int k, double q) {
-  NumericVector Z (k+1);
+// This is the old simulation - does not remember age
+
+void Z_def(int i, double p, int n, int k, double q, NumericVector Z) {
   double U = R::runif(0,1);
   int def_m = i + n;
   if(U < q) {
@@ -65,7 +67,43 @@ NumericVector Z_t(int i, double p, int n, int k, double q) {
   if(def_m <= k) {
     Z[def_m]++;
   }
-  return(Z);
+}
+
+NumericVector Z_t(double p, int n, int k, double q, NumericVector curr, NumericVector nxt) {
+  for(int i = 0; i <= k; i++) {
+    for(int j = 0; j < curr[i]; j++ ) {
+      Z_def(i, p, n, k, q, nxt);
+    }
+  }
+  return(nxt);
+}
+
+//[[Rcpp::export]]
+NumericMatrix Z_mat(double p, int n, int k, double q, int hours, NumericVector start) {
+  // gör nåt 
+  NumericMatrix Z_m (hours+1, k+1);
+  Z_m(0, _) = start;
+  for(int i = 1; i <= hours; i++) {
+    Z_m(i,_) = Z_t(p, n, k, q, Z_m(i-1,_), Z_m(i,_));
+  }
+  return(Z_m);
+}
+
+// This function constructs the rows of the matrix
+NumericVector M_row_cpp(int i, double p, int n, int k, double q, NumericVector Z_r) {
+  Z_def(i, p, n, k ,q, Z_r);
+  return(Z_r);
+}
+
+
+// This functions builds the M matrix from independent rows
+//[[Rcpp::export]]
+NumericMatrix M_est_cpp(double p, int n, int k, double q) {
+  NumericMatrix M (k+1, k+1);
+  for(int i = 0; i <= k; i++) {
+    M(i,_) = M_row_cpp(i, p, n, k, q, M(i, _));
+  }
+  return(M);
 }
 
 /**
