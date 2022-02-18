@@ -3,101 +3,26 @@
 library(expm)
 library(ggplot2)
 library(tidyverse)
-library("pracma")
+library(pracma)
 library(patchwork)
-library('MASS')
-library('easyGgplot2')
+library(MASS)
+library(easyGgplot2)
 
 ### Section: Simulation
 
-# simulation of the reproduction matrix
+# simulation of the reproduction matrix, core in cpp file
 M_est <- function(p, n, k, q, hours, trials) {
-  M <- Reduce('+', lapply(1:trials, function(i) M_mat(p, n, k, q)))/trials
-  return(M %^% hours)
-}
-
-# build matrix from independent row
-M_mat <- function(p, n, k, q) {
-  M <- matrix(0, k+1, k+1)
-  for(i in 0:k) {
-    M[i+1,] <- M_row(i, p, n, k, q)
-  }
+  M <- Reduce('+', lapply(1:trials, function(i) M_est_cpp(p, n, k, q) %^% hours))/trials
   return(M)
 }
-# matrix row (currently using C++ function instead)
-M_row <- function(i, p, n, k, q) {
-  
-  M_i <- c(rep(0, k+1))
 
-  U <- runif(1,0,1)
-  def_m <- i+n # the mother cells ackumulates n new protein each hour
-  
-  # the cell divides
-  if(U < q) {
-    # daughter inherits defect proteins with pr = p
-    def <- rmultinom(1, size = i+n, prob = c(1-p, p))
-    def_m <- def[1] # defect proteins to mother cell
-    if(def[2] <= k) {
-      M_i[def[2]+1] <- M_i[def[2]+1] + 1 # survives
-    }
-  }
-  
-  # test mother cell 
-  if(def_m <= k) {
-    M_i[def_m+1] <- M_i[def_m+1] + 1 # survives
-  } 
-  
-  return(M_i)
-}
-
-# simulate the MGW, returns the last generation
-multi_gw <- function(p, n, k, q, hours, Z_0){
-  Z <- Z_0
-  print(Z_0)
-  for(i in 1:hours){
-    # extinction Z_t is zero vector
-    if(all(Z==0)) break
-    # for all types that exist in this timestep run M_row
-    Z <- rowSums(sapply(which(Z != 0), function(k_) { 
-      rowSums(replicate(Z[k_], M_row(k_-1, p, n, k, q)))
-    }))
-    print(Z)
-  }
-  return(Z)
-} 
-
-# repeat multi type gw x nr of times and take mean
-multi_sim <- function(p, n, k, q, hours, Z_0, trials) {
-  # multi gw returns col vectors
-  Z <- rowSums(replicate(trials, multi_gw(p, n, k, q, hours, Z_0)))/trials
-  return(Z)
+# simulation of multi gw, takes mean of trials simulations
+multi_gw_mean <- function(p, n, k, q, hours, Z_0, trials) {
+  Reduce('+', lapply(1:trials, function(i) Z_mat(p, n, k, q, hours, Z_0)))/trials
 }
 
 
 ### Section: plots for MGW
-
-# test plot multi-type galton watson
-# multi gw dataframe
-
-multi_gw_df <- function(p, n, k, q, hours, Z_0) {
-  Z_mat <- matrix(0,hours+1, k+1)
-  Z_mat[1,] <- Z_0
-  for(i in 2:(hours+1)){
-    # extinction Z_t is zero vector
-    if(all(Z_mat==0)) break
-    # for all types that exist in this timestep run M_row
-    Z_mat[i,] <- rowSums(sapply(which(Z_mat[i-1,] != 0), function(k_) { 
-      rowSums(replicate(Z_mat[i-1,k_], Z_t(k_-1, p, n, k, q)))
-    }))
-  }
-  return(Z_mat)
-}
-
-# Work in progress: take mean of simulation
-multi_gw_df_mean <- function(p, n, k, q, hours, Z_0, trials) {
-  replicate(trials, multi_gw_df(p, n, k, q, hours, Z_0))
-  Reduce('+', lapply(1:trials, function(i) multi_gw_df(p, n, k, q, hours, Z_0)))/trials
-}
 
 # convert to right format (long instead of wide)
 to_long <- function(Z) {
@@ -118,11 +43,11 @@ type_frequency <- function(Z) {
 }
 
 # plot using ggplot2
-multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
+multi_gw_pl <- function(p, n, k, q, hours, Z_0, trials) {
   
   theme_set(theme_minimal())
   
-  df_wide <- multi_gw_df(p, n, k, q, hours, Z_0)
+  df_wide <- multi_gw_mean(p, n, k, q, hours, Z_0, trials)
   df_long <- to_long(df_wide)
   
   M_analytic <- type_mat(p, n, k, q,1)
@@ -130,20 +55,19 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0) {
   print(stable_dist)
   
   type_long <- to_long(type_frequency(df_wide))
-  #pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
+  pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2)
   pl2 <- ggplot(type_long, aes(x, Size)) + 
     geom_line(aes(color = Type, group = Type), size = 1.2) + 
     labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey',size=0.8) +
     scale_y_continuous(breaks = stable_dist)
 
-  #pl1 + pl2
-  pl2
+  pl1 + pl2
   
 }
 
-### Section: Numerical
+### Section: Numerical computations
 
-# calculated the reproduction matrix
+# calculated the reproduction matrix M = qA+B as in theory
 type_mat <- function(p,n,k,q,hours) {
   # M = qA + B
   M <- matrix(0, k+1, k+1)
@@ -153,11 +77,11 @@ type_mat <- function(p,n,k,q,hours) {
   return(M %^% hours)
 }
 
-# build the matrix from rows
+# rows in the A matrix
 type_row <- function(i, p, n, k) {
   sapply(0:k, function(j) dbinom(i+n-j, n+i, p) + dbinom(j, n+i, p))
 }
-# if needed add the B matrix
+# rows in the B matrix
 b_row <- function(i, n, k, q) {
   b <- c(rep(0,k+1))
   if(i+n <= k) {
@@ -175,6 +99,7 @@ pf_eigen <- function(M) {
   return(list(vals[ind], c(normalize(Re(vecs[,ind])))))
 }
 
+# normalize st u*1=1
 normalize <- function(vec) {
   return(vec/sum(vec))
 }
@@ -185,7 +110,7 @@ critical <- function(p, n, k) {
   optimize(qs, lower = 0, upper = 1)$minimum
 }
 
-# results to data frame to be aple to plot
+# results to data frame to be able to plot
 critical_df <- function(n,k) {
   p <- seq(0,1,by=0.01)
   qcrit <- sapply(p, function(p) critical(p,n,k))
@@ -229,7 +154,7 @@ age_sim <- function(p, n, k, q, hours, Z_0, trials) {
   rowSums(replicate(trials, age_prop(p, n, k, q, hours, Z_0)))
 }
 
-# convert to distribution
+# convert to distribution (scales)
 age_df <- function(Z) {
   scaled <- Z/sum(Z);
   df <- as.data.frame(scaled)
@@ -237,11 +162,12 @@ age_df <- function(Z) {
   return(df)
 }
 
-# fit gamma disribution to simulated data
+# WORK IN PROGRESS: fit gamma disribution to simulated data
 gamma_ML <- function(Z) {
-  fitdistr(rep(0:(length(Z)-1), times=Z), "gamma")$estimate
+  fitdistr(rep(c(0.01, 1:(length(Z)-1)), times=Z), "gamma")$estimate
 }
 
+# plots the age distribution
 # TODO: Fix gamma-parameters
 age_pl <- function(p, n, k, q, hours, Z_0, trials) {
   
@@ -253,17 +179,15 @@ age_pl <- function(p, n, k, q, hours, Z_0, trials) {
   # print(Z)
 
   # ml estimation of gamma parameters
-  # params <- sapply(1:ncol(Z), function(i) fitdistr(rep(c(0.001, 1:hours), times=Z[,i]), "gamma")$estimate)
+  # params <- sapply(1:ncol(Z), function(i) gamma_ML(Z[,i]))
   #df <- as.data.frame(Z)
   colnames(df) <- p
   df$x <- 0:hours
   df_long <- df %>% gather(key = "pvalue", value = "count", -x)
   
-  ggplot(df_long, aes(x, count)) +
-    geom_line(aes(color = pvalue, group = pvalue), size = 1) 
-     # geom_function(fun = dgamma, args = list(shape = params[1,1], rate = params[2,1]), size = 1) + 
+  ggplot(df_long, aes(x, count)) + geom_line(aes(color = pvalue, group = pvalue), size = 1) 
+     # geom_function(fun = dgamma, args = list(shape = params[1,1], rate = params[2,1]), size = 1)  
      # geom_function(fun = dgamma, args = list(shape = params[1,2], rate = params[2,2]), size = 1)
 }
-
 
 
