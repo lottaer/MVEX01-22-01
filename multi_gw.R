@@ -167,31 +167,30 @@ age_df <- function(Z) {
 }
 
 # WORK IN PROGRESS: fit gamma disribution to simulated data
+# fit gamma disribution to simulated data by maximum likelihoos
 gamma_ML <- function(Z) {
-  fitdistr(rep(c(0.01, 1:(length(Z)-1)), times=Z), "gamma")$estimate
+  data <- fitdistr(rep(c(0.01, 1:(length(Z)-1)), times=Z), "gamma")
+  print(data)
+  params <- data$estimate
+  df <- as.data.frame(Z/sum(Z))
+  colnames(df) <- 'proportion'
+  df$x <- 0:(length(Z)-1)
+  ggplot(df, aes(x = x, y = proportion)) + geom_bar(stat = 'identity') +
+    geom_function(fun = dgamma, args = list(shape = params[1], rate = params[2]), size = 1) 
 }
-
-# plots the age distribution
-# TODO: Fix gamma-parameters
+                  
+# Frequency polygons
 age_pl <- function(p, n, k, q, hours, Z_0, trials) {
-  
   theme_set(theme_minimal())
   
   # run the simulation
   Z <- sapply(p, function(p_) rowSums(replicate(trials, age_prop(p_, n, k, q, hours, Z_0))))
   df <- as.data.frame(sapply(1:ncol(Z), function(i) Z[,i]/sum(Z[,i])))
-  # print(Z)
-
-  # ml estimation of gamma parameters
-  # params <- sapply(1:ncol(Z), function(i) gamma_ML(Z[,i]))
-  #df <- as.data.frame(Z)
   colnames(df) <- p
   df$x <- 0:hours
   df_long <- df %>% gather(key = "pvalue", value = "count", -x)
   
   ggplot(df_long, aes(x, count)) + geom_line(aes(color = pvalue, group = pvalue), size = 1) 
-     # geom_function(fun = dgamma, args = list(shape = params[1,1], rate = params[2,1]), size = 1)  
-     # geom_function(fun = dgamma, args = list(shape = params[1,2], rate = params[2,2]), size = 1)
 }
 
 
