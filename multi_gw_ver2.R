@@ -70,7 +70,7 @@ expected_sz <- function(p, n, k, hours, start) {
   start*M
 }
 
-# för (n,k) hitta det p-värde som ger den kritiska processen
+# fÃ¶r (n,k) hitta det p-vÃ¤rde som ger den kritiska processen
 critical_n <- function(p, k) {
   rho <- 100
   n <- 0
@@ -100,34 +100,9 @@ critical_pl <- function(p,k) {
   }
   ggplot(df, aes(k, crit, color = factor(pvalue))) +
     geom_line(size = 1.2) +
-    ggtitle("Kritiskt n värde") + 
+    ggtitle("Kritiskt n vÃ¤rde") + 
     xlab("k") + ylab("n") 
 }
-
-
-# stämmer ej! i det subkritiska och det kritiska fallen ska pr = 1
-ext_pr <- function(p, n, k) {
-  # solve non linear system of equation to find extinction prob
-  f <- function(s) {
-    for(i in 0:k) {
-      gamma <- i+n
-      ind <- ifelse(gamma <= k && gamma %% 2 == 0, TRUE, FALSE)
-      s[i+1] <- -s[i+1] 
-      if(ind) {
-        s[i+1] <- s[i+1] + dbinom(gamma, n+i,p)*s[gamma+1]^2
-      }
-      for(j in 0:k) {
-        # skriv om: skippa bara när gamma jämnt
-        if(ind && j == gamma) { next } 
-        print(s[i+1])
-        s[i+1] <- s[i+1] + (dbinom(i+n-j, n+i, p) + dbinom(j, n+i, p))*s[j+1]
-      }
-      return(s)
-    }
-  }
-  nleqslv(rep(1,k+1), f)$x
-}
-
 
 # Visualization -----------------------------------------------------------
 
