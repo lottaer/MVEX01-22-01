@@ -15,6 +15,26 @@ library(tikzDevice)
 # hours = number of timesteps
 # Z_0 startvector ex: c(1,0,0) 
 
+# Om något paket saknas laddas det ned genom install.packages(...)
+# Ladda paket som du laddat ned genom library(...)
+# Alla funktioner och definitoner av variabler görs i terminalen
+# Ex skapa väntevärdesmatrisen: M <- M_mat(0.5,2,2,1)
+# Ex kör funktion genom terminal: multi_gw_mean(0.5,2,2,20,c(1,0,0),1000)
+# Om en variabel är definierad används denna ibland som input t.ex pf_eigen(M)
+# där M är väntevärdesmatrisen som vi definierade på rad 21
+
+# För att ladda alla funktioner i R-filen till workspaces så kör ctrl-A enter
+
+# All simulering är skriven i C++ och ligger i filen multi_gw_ver2.cpp
+# Denna simulering är bara en direkt översättning av tidigare R-simulering
+# men skriven på sådant sätt att minnes-allokeringen är minimerad och således
+# är programmet märkbart snabbare
+
+# Klicka på Source i filen för att kompilera. Alla funktioner som det 
+# står det export över i cpp filen och kommer dyka upp
+# i workspaces som R funktionerna. Dessa funktioner går att använda
+# på precis samma sätt som funktionerna i R-filen
+
 # Simulation --------------------------------------------------------------
 
 # simulation of the reproduction matrix
