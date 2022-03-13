@@ -183,11 +183,13 @@ type_frequency <- function(Z) {
 
 # Age distribution --------------------------------------------------------
 
-# plots the age distribution
+# Age distribution --------------------------------------------------------
+
+# plots one curve of the age distribution
 # mother cell until it dies
 cell_sim <- function(i,p,n,k,trials) {
   ages <- cell_ages(i,p,n,k,trials)/trials
-  print(E(ages))
+  #print(E(ages))
   df <- as.data.frame(ages)
   df$t <- 1:length(ages)
   pl1 <- ggplot(df, aes(t, ages)) + geom_line()
@@ -198,6 +200,73 @@ cell_sim <- function(i,p,n,k,trials) {
 E <- function(probs) {
   vals <- 0:(length(probs)-1)
   sum(vals*probs)
+}
+
+# plot several curves in the same plot
+# p is a vector e.g c(0.1, 0.3,0.5)
+age_plot <- function(i,p,n,k,trials) {
+  theme_set(theme_minimal())
+  age <- cell_ages(i,p[1],n,k,trials)/trials
+  df <- as.data.frame(age)
+  df$x <- 1:length(age)
+  df$dataset <- c(rep(p[1], length(age)))
+  
+  #pl <- ggplot() + geom_line(df, mapping = aes(x,age))
+  for(i in 2:length(p)) {
+    age <- cell_ages(i,p[i],n,k,trials)/trials
+    df2 <-as.data.frame(age)
+    df2$x <- 1:length(age)
+    df2$dataset <- c(rep(p[i], length(age)))
+    df <- rbind(df, df2)
+  }
+  print(df)
+  pl <- ggplot(df, aes(x, age)) + 
+    geom_line(aes(color = factor(dataset), group = dataset), size = 1) 
+  pl
+}
+
+# plots age distribution for different starting cells
+# i should be a vector of integers e.g c(0,1)
+age_plot_type <- function(i,p,n,k,trials) {
+  theme_set(theme_minimal())
+  age <- cell_ages(i[1],p,n,k,trials)/trials
+  df <- as.data.frame(age)
+  df$x <- 1:length(age)
+  df$dataset <- c(rep(i[1], length(age)))
+  for(ii in 2:length(i)) {
+    age <- cell_ages(i[ii],p,n,k,trials)/trials
+    df2 <-as.data.frame(age)
+    df2$x <- 1:length(age)
+    df2$dataset <- c(rep(i[ii], length(age)))
+    df <- rbind(df, df2)
+  }
+  col<- c("#999999", "#E69F00", "#56B4E9", "#009E73",
+          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+  pl <- ggplot(df, aes(x, age)) + 
+    geom_line(aes(color = factor(dataset),group = dataset), size = 1)
+  pl + scale_color_manual(values = col)
+  # TODO: fixa x-axeln
+}
+
+gamma_par <- function(Z) {
+  fitdistr(rep(1:length(Z), times=Z), "gamma")$estimate
+}
+
+# plot gamma curve and abserved data
+gamma_ML <- function(Z) {
+  params <- gamma_par(Z)
+  print(params)
+  df <- as.data.frame(Z/sum(Z))
+  colnames(df) <- 'proportion'
+  df$x <- 1:length(Z)
+  #print(exp_life(Z))
+  ggplot(df, aes(x = x, y = proportion)) + geom_bar(stat="identity") +
+    geom_function(fun = dgamma, args = list(shape = params[1], rate = params[2]), size = 1) 
+}
+
+exp_life <- function(Z) {
+  params <- gamma_par(Z)
+  params[1]/params[2] # expected value
 }
 
 
