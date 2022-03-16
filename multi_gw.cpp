@@ -131,3 +131,22 @@ NumericMatrix M_est_cpp(double p, int n, int k, double q) {
   }
   return(M);
 }
+
+// Simulation of extinction probability (only started)
+//[[Rcpp::export]]
+int Z_ext(double p, int n, int k, double q, int hours, NumericVector start) {
+  NumericMatrix Z_m (hours+1, k+1);
+  Z_m(0, _) = start;
+  for(int gen = 1; gen <= hours; gen++) {
+    for(int i = 0; i <= k; i++) {
+      for(int j = 0; j < Z_m(gen-1, i); j++) {
+        Z_def(i, p, n, k, q, Z_m(gen,_));
+        // if sz > 5000 we are assuming that the popualtion survives
+        if(sum(Z_m(gen,_) >= 5000)) {
+          return(sum(Z_m(gen,_)));
+        }
+      }
+    }
+  }
+  return(sum(Z_m(hours,_)));
+}
