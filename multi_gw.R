@@ -25,6 +25,14 @@ multi_gw_mean <- function(p, n, k, q, hours, Z_0, trials) {
   Reduce('+', lapply(1:trials, function(i) Z_mat(p, n, k, q, hours, Z_0)))/trials
 }
 
+# simulation of the extinction probability
+multi_gw_ext <- function(p,n,k,q,hours,Z_0,trials) {
+  if(length(Z_0) != k+1) {
+    print("Enter starting vector of correct length")
+    return(0)
+  }
+  sum(replicate(trials, Z_ext(p,n,k,q,hours,Z_0))==0)/trials
+}
 
 ### Section: plots for MGW
 
