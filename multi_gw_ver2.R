@@ -82,7 +82,7 @@ pf_eigen <- function(M) {
 # expected size of population after n hours
 expected_sz <- function(p, n, k, hours, start) {
   M <- M_mat(p,n,k, hours)
-  start*M
+  sum(start*M)
 }
 
 # finds the first n for every k where the the process is subkritical
