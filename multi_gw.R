@@ -115,6 +115,12 @@ pf_eigen <- function(M) {
 normalize <- function(vec) {
   return(vec/sum(vec))
 }
+         
+# expected size of population
+expected_sz <- function(p, n, k, q, hours, start) {
+  M <- type_mat(p,n,k,q,hours)
+  sum(start*M)
+}
 
 # minimization of rho - 1
 critical <- function(p, n, k) {
