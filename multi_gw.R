@@ -76,6 +76,45 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0, trials) {
   pl1 + pl2
   
 }
+                   
+# plot rho for different values to find trend
+# q is held fixed
+rho_plot <- function(p,n,k) {
+  q <- seq(0,1,by=0.05) 
+  rho <- sapply(seq(0,1,by=0.05), function(q) rho(p[1],n,k,q))
+  df <- data.frame(q, rho)
+  df$pvalue <- p[1]
+  for(i in 2:length(p)) {
+    rho <- sapply(seq(0,1,by=0.05), function(q) rho(p[i],n,k,q))
+    df2 <- data.frame(q, rho)
+    df2$pvalue <- p[i]
+    df <- rbind(df, df2)
+  }
+  print(df)
+  ggplot(df, aes(q,rho)) + geom_line(aes(color=factor(pvalue))) + theme_light() +
+    ylim(0,2)
+}
+                   
+# stacked bar plots for stable type distribution
+v_plot <- function(p,n,k,q) {
+  if(rho(p[1],n,k,q) <= 1) {
+    print("Subcritical!")
+    return(0)
+  }
+  v <- st_type(p[1],n,k,q)
+  label <- rep(p[1], k+1)
+  type <- 0:k
+  df <- data.frame(label, v,type)
+  for(i in 2:length(p)){
+    v <- st_type(p[i],n,k,q)
+    label <- rep(p[i], k+1)
+    type <- 0:k
+    df2 <- data.frame(label, v,type)
+    df <- rbind(df, df2)
+  }
+ ggplot(df, aes(fill=factor(type), y=v,x=factor(label))) + geom_bar(position='fill', stat='identity') +
+   scale_fill_brewer(palette = "Greens", direction = -1) + theme_minimal() 
+}
 
 ### Section: Numerical computations
 
@@ -109,6 +148,18 @@ pf_eigen <- function(M) {
   vecs <- eigs$vectors
   ind <- which.max(Re(vals[abs(Im(vals)) < 1e-6]))
   return(list(vals[ind], c(normalize(Re(vecs[,ind])))))
+}
+   
+# stable type distribution
+st_type <- function(p,n,k,q) {
+  M <- type_mat(p,n,k,q,1)
+  pf_eigen(M)[[2]]
+}
+    
+# reproduction value
+rho <- function(p,n,k,q) {
+  M <- type_mat(p,n,k,q,1)
+  pf_eigen(M)[[1]]
 }
 
 # normalize st u*1=1
