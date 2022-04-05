@@ -11,6 +11,68 @@ struct cell {
   int age;    // to calculate age at death
 };
 
+struct cellp {
+  int type;
+  int age;
+  bool alive;
+  cellp *mth;
+};
+
+// calculates the difference between lifelength of mth and dth
+// only makes sense in the special case
+std::list<double> rej_index(std::list<cellp> dead) {
+  std::list<double> rej;
+  for(auto it = dead.begin(); it != dead.end(); ) {
+    if(!(it->mth == NULL)) {
+      if(!it->mth->alive) {
+        double re = it->age - it->mth->age;
+        it = dead.erase(it);
+        rej.push_front(re);
+      }
+    }
+    ++it;
+  }
+  return(rej);
+}
+
+//[[Rcpp::export]]
+std::list<double> rej_cell(int i, double p, int n, int k, double q, int hours) {
+  std::list<cellp> Z; // alive cells 
+  Z.push_front({0, 0, true, NULL});
+  
+  std::list<cellp> dead; // add dead cells
+  
+  for(int j = 1; j <= hours; j++) {
+    for(auto it = Z.begin(); it != Z.end(); ) {
+      double U = R::runif(0,1);
+      int def_m = it->type + n;
+      // the cell divides
+      if(U < q) {
+        int def = R::rbinom(def_m, p);
+        def_m -= def;
+        if(def <= k) {
+          Z.push_front({ def, j, true, &(*it) });
+        }
+        // The cell dies immediately
+        else {
+          dead.push_front({ def, 0, false, &(*it) });
+        }
+      }
+      if(def_m <= k){
+        it->type = def_m;
+        it->age++; // survived
+        ++it;
+      }
+      else {
+        it->alive = false;
+        dead.push_front(*it); // add to dead cells
+        it = Z.erase(it); // remove from alive cells
+      }
+    }
+  }
+  return(rej_index(dead)); // return the dead cells
+}
+
 // ------------------- POPULATIONS --------------------------
 
 // applied to each cell in the population
