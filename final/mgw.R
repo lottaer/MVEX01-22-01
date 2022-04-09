@@ -36,6 +36,10 @@ M_est <- function(p, n, k, q, hours, trials) {
   M <- Reduce('+', lapply(1:trials, function(i) M_est_cpp(p, n, k, q) %^% hours))/trials
   return(M)
 }
+                          
+index <- function(i, p, n , k, q, trials) {
+  mean(multi_rej(i, p, n, k, q, trials))
+}
 
 # simulation of age distribution
 age_sim <- function(p, n, k, q, hours, Z_0, trials) {
