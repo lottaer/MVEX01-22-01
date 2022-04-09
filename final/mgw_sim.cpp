@@ -18,6 +18,101 @@ struct cellp {
   cellp *mth;
 };
 
+// Follows a mothercell until it dies
+//[[Rcpp::export]]
+int cell_age(int i, double p, int n, int k, double q){
+  cell mth = {i, 0};
+  while(mth.type <= k) {
+    int def_m = mth.type+n;
+    double U = R::runif(0,1);
+    if(U < q) {
+      int def = R::rbinom(def_m, p);
+      def_m -= def;
+    }
+    if(def_m <= k) {
+      mth.type = def_m;
+      mth.age++;
+    }
+    else{
+      return mth.age;
+    }
+  }
+  return(mth.age);
+}
+
+std::list<cell> get_daughters(cell &mth, double p, int n, int k, double q) {
+  std::list<cell> dht; // daughter cells
+  while(mth.type <= k) {
+    int def;
+    int def_m = mth.type+n;
+    double U = R::runif(0,1);
+    if(U < q) {
+      def = R::rbinom(def_m, p);
+      def_m -= def;
+    }
+    if(def_m <= k) {
+      mth.type = def_m;
+      mth.age++;
+      dht.push_back({def, 0});
+    }
+    else{
+      return(dht);
+    }
+  }
+  return(dht);
+}
+
+// calculate the vector mean
+//[[Rcpp::export]]
+double rcpp_mean(std::vector<int> cells) {
+  int sum = 0;
+  int n = cells.size();
+  for(auto const& value: cells) {
+    sum += value;
+  }
+  return((double) sum/n);
+}
+
+// divide all elements in vector by scalar
+//[[Rcpp::export]]
+std::vector<double> divide(double mth_mean, std::vector<double> diff) {
+  for(int i = 0; i < diff.size(); i++) {
+    diff[i] = (double) diff[i]/mth_mean;
+  }
+  return(diff);
+}
+
+//[[Rcpp::export]]
+std::vector<double> multi_rej(int i, double p, int n, int k, double q, int trials){
+  
+  int tot_age = 0;
+  int non_empty = 0;
+  std::vector<double> index;
+  
+  for(int tr = 1; tr <= trials; tr++) {
+    
+    cell mth = {i,0};    // init mother cell
+    std::list<cell> dht = get_daughters(mth,p,n,k,q);
+    std::vector<int> rej;
+    
+    // Lifelength of daughters
+    for(cell daughter : dht) {
+      // if no daughters skip (both needs to die)
+      int rep_age = cell_age(daughter.type,p,n,k,q);
+      rej.push_back(rep_age);
+    }
+    
+    if(!rej.size()==0) {
+      tot_age += mth.age;
+      non_empty++;
+      double diff = rcpp_mean(rej)-mth.age;
+      index.push_back(diff);
+    }
+  }
+  double mean = (double) tot_age/non_empty;
+  return(divide(mean, index));
+}
+
 // calculates the difference between lifelength of mth and dth
 // only makes sense in the special case
 std::list<double> rej_index(std::list<cellp> dead) {
