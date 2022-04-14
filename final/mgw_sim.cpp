@@ -18,6 +18,7 @@ struct cellp {
   cellp *mth;
 };
 
+
 // Follows a mothercell until it dies
 //[[Rcpp::export]]
 int cell_age(int i, double p, int n, int k, double q){
@@ -49,17 +50,36 @@ std::list<cell> get_daughters(cell &mth, double p, int n, int k, double q) {
     if(U < q) {
       def = R::rbinom(def_m, p);
       def_m -= def;
+      // The daughter cell survives
+      if(def <= k){
+        dht.push_back({def, 0});
+      }
     }
+    // check if the mother survives
     if(def_m <= k) {
       mth.type = def_m;
       mth.age++;
-      dht.push_back({def, 0});
     }
     else{
       return(dht);
     }
   }
   return(dht);
+}
+
+// look at the lifelength of the mother and then the daughters
+//[[Rcpp::export]]
+std::list<int> life_diff(int i,double p, int n, int k, double q) {
+  cell mth = {i, 0};
+  std::list<cell> daughters = get_daughters(mth, p, n,k,q);
+  std::list<int> lifelengths;
+  //Rcout << "Mothers age: " << mth.age;
+  lifelengths.push_front(mth.age);
+  for(auto const& dht : daughters) {
+    int rep_age = cell_age(dht.type,p,n,k,q);
+    lifelengths.push_back(rep_age);
+  }
+  return(lifelengths);
 }
 
 // calculate the vector mean
@@ -82,22 +102,25 @@ std::vector<double> divide(double mth_mean, std::vector<double> diff) {
   return(diff);
 }
 
+// Problem, moderns livslängd längre än medellivslängder
+// av döttrarna
 //[[Rcpp::export]]
 std::vector<double> multi_rej(int i, double p, int n, int k, double q, int trials){
-  
   int tot_age = 0;
   int non_empty = 0;
   std::vector<double> index;
+  //NumericMatrix m(2, trials);
   
-  for(int tr = 1; tr <= trials; tr++) {
-    
-    cell mth = {i,0};    // init mother cell
+  for(int tr = 0; tr < trials; tr++) {
+    cell mth = {i, 0};
+    // init mother cell
     std::list<cell> dht = get_daughters(mth,p,n,k,q);
     std::vector<int> rej;
     
     // Lifelength of daughters
     for(cell daughter : dht) {
       // if no daughters skip (both needs to die)
+      // Rcout << daughter.type;
       int rep_age = cell_age(daughter.type,p,n,k,q);
       rej.push_back(rep_age);
     }
@@ -105,12 +128,17 @@ std::vector<double> multi_rej(int i, double p, int n, int k, double q, int trial
     if(!rej.size()==0) {
       tot_age += mth.age;
       non_empty++;
-      double diff = rcpp_mean(rej)-mth.age;
+      double dhtmean = rcpp_mean(rej);
+      double diff = dhtmean-mth.age;
       index.push_back(diff);
+      //m(0,tr) = mth.age;
+      //m(1,tr) = dhtmean;
     }
   }
   double mean = (double) tot_age/non_empty;
   return(divide(mean, index));
+  return(index);
+  //return(m);
 }
 
 // calculates the difference between lifelength of mth and dth
