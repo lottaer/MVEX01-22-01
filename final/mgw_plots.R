@@ -78,6 +78,23 @@ rho_plot <- function(p,n,k) {
 
 ## --------------- AGE DIST PLOT ------------------------
 
+# The input data should be a vector from cell_ages
+# The function will ask for start value i.e "start of tail"
+MLE_plot <- function(data) {
+  plot(0:(length(data)-1), data/sum(data), type = 'l', ylab = '', xlab = 'Ålder')
+  start <- readline(prompt = "Enter starting value: ")
+  tail <- data[-(1:start)]
+  mle <- MLE_geom(tail)
+  print(mle)
+  scaled_data <- tail/sum(tail) 
+  df <- data.frame(scaled_data)
+  df$x <- 0:(length(tail)-1)
+  ggplot(df, aes(x, scaled_data)) + geom_line(aes(x, scaled_data), size = 1) +
+    geom_line(aes(x, dgeom(x,mle)), color = "steelblue", linetype = "twodash")
+  #plot(x, tail/sum(tail), type = 'l', ylab = '', xlab = 'Ålder')
+  #lines(x, dgeom(x,mle), col = 'red')
+}
+                  
 # plots one curve of the age distribution
 cell_sim <- function(i,p,n,k,q,trials) {
   ages <- cell_ages(i,p,n,k,q,trials)/trials
@@ -136,6 +153,15 @@ age_plot_type <- function(i,p,n,k,q,trials) {
 
 ## ---------------- HELPER FUNCTION ---------------------
 
+# R-convention: The probability of the number Y = X - 1 of 
+# failures before the first succes -> 0 included
+MLE_geom <- function(data) {
+  x <- 0:(length(data)-1)
+  tmp <- rep(x, times = data)
+  n <- length(tmp)
+  n/(sum(tmp)+n) # maximum likelihood parameter
+}
+                  
 # convert to right format (long instead of wide)
 to_long <- function(Z) {
   df = as.data.frame(Z)
@@ -169,7 +195,7 @@ critical_pl <- function(p,k) {
   }
   ggplot(df, aes(k, crit, color = factor(pvalue))) +
     geom_line(size = 1) +
-    ggtitle("(Sub)kritiskt $n$ v�rde") + 
+    ggtitle("(Sub)kritiskt $n$ värde") + 
     xlab("$k$") + ylab("$n$") + theme_light() 
 }
 
