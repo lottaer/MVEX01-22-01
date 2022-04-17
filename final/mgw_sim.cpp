@@ -105,40 +105,38 @@ std::vector<double> divide(double mth_mean, std::vector<double> diff) {
 // Problem, moderns livslängd längre än medellivslängder
 // av döttrarna
 //[[Rcpp::export]]
+//[[Rcpp::export]]
 std::vector<double> multi_rej(int i, double p, int n, int k, double q, int trials){
   int tot_age = 0;
   int non_empty = 0;
-  std::vector<double> index;
-  //NumericMatrix m(2, trials);
-  
+  std::vector<double> rej;
   for(int tr = 0; tr < trials; tr++) {
-    cell mth = {i, 0};
-    // init mother cell
+    cell mth = {i, 0}; // init mother cell
     std::list<cell> dht = get_daughters(mth,p,n,k,q);
-    std::vector<int> rej;
-    
+    int m_age = mth.age;
+    int d_age = 0;
     // Lifelength of daughters
     for(cell daughter : dht) {
-      // if no daughters skip (both needs to die)
-      // Rcout << daughter.type;
       int rep_age = cell_age(daughter.type,p,n,k,q);
-      rej.push_back(rep_age);
+      rej.push_back(rep_age-m_age);
+      d_age += rep_age;
     }
-    
-    if(!rej.size()==0) {
-      tot_age += mth.age;
-      non_empty++;
-      double dhtmean = rcpp_mean(rej);
-      double diff = dhtmean-mth.age;
-      index.push_back(diff);
+    // change the index
+    if(!rej.size()==0) { // cannot calculate index if both not dead
+      tot_age += (m_age + d_age);
+      non_empty += (1+rej.size()); // mother + nr of dhts
+      //double dhtmean = rcpp_mean(rej);
+      //double diff = dhtmean-mth.age;
+      //index.push_back(diff);
       //m(0,tr) = mth.age;
       //m(1,tr) = dhtmean;
     }
   }
-  double mean = (double) tot_age/non_empty;
-  return(divide(mean, index));
-  return(index);
+  double mean = (double) tot_age/non_empty; // mean of the mothers ages
+  return(divide(mean, rej));
+  //return(index);
   //return(m);
+  //return(rej);
 }
 
 // calculates the difference between lifelength of mth and dth
