@@ -54,6 +54,11 @@ age_df <- function(Z) {
   return(df)
 }
 
+# proportion of daughters that lives longer than the mother
+prop_rej <- function(data) {
+  sum(data >= 0)/length(data)
+}                          
+                          
 ### -------------- NUMERICAL -----------------------
 # All numerical computations used in plots etc.
 
