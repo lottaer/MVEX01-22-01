@@ -18,7 +18,7 @@ struct cell {
 // Follows a mothercell until it dies
 //[[Rcpp::export]]
 int cell_age(int i, double p, int n, int k){
-  cell mth = {i, 0};
+  cell mth = {i, 1};
   //std::list<int> bio_age;
   //bio_age.push_back(i);
   // change to avoid inf loop?
@@ -44,15 +44,18 @@ int cell_age(int i, double p, int n, int k){
 // and returns the difference in ages between mother and each daugther
 // Just nu kan man ej ändra q
 //[[Rcpp::export]]
-NumericVector deqrls(int i, double p, int n, int k){
+std::vector<double> deqrls(int i, double p, int n, int k){
   std::deque<int> dage;
-  NumericVector drls;
+  std::vector<double> drls;
   cell mth = {i, 0};
   while(mth.type <= k) {
     int def_m = mth.type+n;
     int def = R::rbinom(def_m, p);
     def_m -= def;
+    // Add only if daughter is alive
+    if (def <= k){
     dage.push_back(def);
+    }
     if(def_m <= k) {
       mth.type = def_m;
       mth.age++;
@@ -61,13 +64,52 @@ NumericVector deqrls(int i, double p, int n, int k){
       //Simulate all daughter ages and return difference in age to mother
       int mage = dage.size();
       for (int i = 0; i < dage.size(); i++) {
-        drls.push_back(cell_age(dage[i], p, n, k)-mage);
+        // Return normalized values
+        //double x = (cell_age(dage[i], p, n, k));
+        drls.push_back((double) (cell_age(dage[i], p, n, k)-mage)/mage);
       }
       return drls;
     }  
   }
 }
 
+
+//---------------------Repeat add all to same list-------------------------
+// NEW version
+//[[Rcpp::export]]
+std::list<double> df_drls(int i, double p, int n, int k, int trials){
+  std::list<double> drls;
+  for (int ii = 0; ii < trials; ii++){
+    // ONe trial
+    std::deque<int> dage;
+    cell mth = {i, 0};
+    while(mth.type <= k) {
+      int def_m = mth.type+n;
+      int def = R::rbinom(def_m, p);
+      def_m -= def;
+      // Add only if daughter is alive
+      if (def <= k){
+        dage.push_back(def);
+      }
+      if(def_m <= k) {
+        mth.type = def_m;
+        mth.age++;
+      }
+      else{
+        //Simulate all daughter ages and return difference in age to mother
+        double mage = dage.size();
+        for (int i = 0; i < dage.size(); i++) {
+          double x = (cell_age(dage[i], p, n, k)-mage);
+          drls.push_back((double) x/mage); //Dela med moder ålder
+          //drls.push_back(cell_age(dage[i], p, n, k)-mage)
+        }
+        break;
+        
+      }  
+    }
+  }
+  return drls;
+}
 
 //---------------------------------------------------------------
 
