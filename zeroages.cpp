@@ -29,6 +29,7 @@ std::list<int> zeroage(int i, double p, int n, int k, double q, int hours) {
     if (it->type == 0){
       zerotype.push_back(it->age);
     }
+    ++it;
   }
   return zerotype;
 }
