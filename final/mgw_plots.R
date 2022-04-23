@@ -5,33 +5,43 @@ library(pracma)
 library(patchwork)
 library(MASS)
 library(easyGgplot2)
-library(nleqslv)
 library(tikzDevice)
+library(EnvStats)
 
 ### ------------------ GENERAL CASE -------------------
 
 # plot stable type distribution
 multi_gw_pl <- function(p, n, k, q, hours, Z_0, trials) {
   
-  #theme_set(theme_minimal())
+  theme_set(theme_minimal())
   
   df_wide <- multi_gw_mean(p, n, k, q, hours, Z_0, trials)
   df_long <- to_long(rowSums(df_wide))
   
-  M_analytic <- type_mat(p, n, k, q,1)
+  M_analytic <- M_mat(p, n, k, q,1)
   stable_dist <- round(pf_eigen(M_analytic)[[2]], digits = 3)
   print(stable_dist)
   
   type_long <- to_long(type_frequency(df_wide))
-  #pl1 <- ggplot(df_long, aes(x, Size)) + geom_line(aes(color = Type, group = Type), size = 1.2) +
-  # xlab("Generation") + ylab("Populationsstorlek")
+  pl1 <- ggplot(df_long, aes(x, Size)) + geom_line() # +
+    # xlab("Tidsenhet") + ylab("Populationsstorlek")
   pl2 <- ggplot(type_long, aes(x, Size)) + 
-    geom_line(aes(color = Type, group = Type), size = 1.2) + xlab("Generation") +
-    labs(y = "Proportion") + geom_hline(yintercept = stable_dist, color = 'grey',size=0.8) +
-    scale_y_continuous(breaks = stable_dist)
-  
-  #pl1  + pl2
-  pl2
+    geom_line(aes(color = Type, group = Type)) + 
+     geom_hline(yintercept = stable_dist, color = 'grey',size=0.6) +
+     scale_y_continuous(breaks = stable_dist)
+  pl1  + pl2 
+}
+
+# Plot the population size over time
+multi_gw_size <- function(p,n,k,q,hours,Z_0,trials){
+  df <- data.frame(
+    sapply(p, function(p_) rowSums(multi_gw_mean(p_, n, k, q, hours, Z_0, trials))),
+    t = 0:hours
+  )
+  colnames(df)[1:length(p)] <- p 
+  df <- df %>% gather(key = 'p', value = 'size', -t)
+  ggplot(df, aes(x = t, y = size, color = factor(p))) + geom_line() +
+    theme_light()
 }
 
 # stacked bar plots for stable type distribution
@@ -41,127 +51,112 @@ v_plot <- function(p,n,k,q) {
   if(min(rhos) <= 1) {
     print("Subcritical!")
     return(0)
-  }    
-  v <- st_type(p[1],n,k,q)
-  label <- rep(p[1], k+1)
-  type <- 0:k
-  df <- data.frame(label, v,type)
-  for(i in 2:length(p)){
-    v <- st_type(p[i],n,k,q)
-    label <- rep(p[i], k+1)
-    type <- 0:k
-    df2 <- data.frame(label, v,type)
-    df <- rbind(df, df2)
-  }
-  ggplot(df, aes(fill=factor(type), y=v,x=factor(label))) + geom_bar(position='fill', stat='identity', alpha = 0.9) +
-    scale_fill_brewer(palette = "Greens", direction = -1) + theme_minimal() +
-    geom_text(aes(label = round(v,digits=3)),size = 3, hjust = 0.5, vjust = 2, position = "stack", alpha = 0.5)
+  } 
+  df <- data.frame(
+    sapply(p, function(p_) st_type(p_,n,k,q)),
+    type = 0:k
+  )
+  colnames(df)[1:length(p)] <- p 
+  df <- df %>% gather(key = 'p', value = 'v', -type)
+  ggplot(df, aes(fill=factor(type), y=v,x=factor(p))) + geom_bar(position='fill', stat='identity', alpha = 0.9) +
+    scale_fill_brewer(palette = "Greens", direction = -1) + theme_minimal() 
 }
 
 # plot rho for different values to find trend
 # q is held fixed
 rho_plot <- function(p,n,k) {
   q <- seq(0,1,by=0.05) 
-  rho <- sapply(seq(0,1,by=0.05), function(q) rho(p[1],n,k,q))
-  df <- data.frame(q, rho)
-  df$pvalue <- p[1]
-  for(i in 2:length(p)) {
-    rho <- sapply(seq(0,1,by=0.05), function(q) rho(p[i],n,k,q))
-    df2 <- data.frame(q, rho)
-    df2$pvalue <- p[i]
-    df <- rbind(df, df2)
+  df <- data.frame(
+    sapply(p, function(p_) sapply(q, function(q_) rho(p_,n,k,q_))),
+    q = q
+  )
+  colnames(df)[1:length(p)] <- p 
+  df <- df %>% gather(key = 'p', value = 'rho', -q)
+  ggplot(df, aes(q, rho)) + geom_line(aes(color=factor(p))) + theme_light() + ylim(0,2)
+}
+
+rho_plot_sc <- function(n,k) {
+  p <- seq(0.01,0.5,0.025)
+  df <- data.frame(
+    rho = sapply(n, function(n_) sapply(p, function(p_) rho(p_,n_,k,1))),
+    p = p
+  )
+  colnames(df)[1:length(n)] <- n 
+  df <- df %>% gather(key = 'n', value = 'rho', -p)
+  ggplot(df, aes(p, rho)) + geom_line(aes(color=factor(n))) + theme_light() + ylim(1,2)
+}
+
+## _______________ REJUVENATION ________________________
+
+rejuv_plot <- function(p,n,k,q,trials) {
+  init <- 0:k
+  df <- lapply(p, function(p_) {
+    data.frame(
+    mean = sapply(init, function(i_) mean(df_drls(i_,p_,n,k,trials))),
+    type = init,
+    p_value = p_
+    )
   }
+  )
+  df <- do.call("rbind", df)
   print(df)
-  ggplot(df, aes(q,rho)) + geom_line(aes(color=factor(pvalue))) + theme_light() +
-    ylim(0,2)
+  ggplot(df, aes(x = type, y = mean, group = p_value)) + 
+    geom_line(aes(color=factor(p_value))) + geom_point(aes(color=factor(p_value))) +
+    scale_color_brewer(palette="Paired") + labs(color = 'p')
 }
 
 ## --------------- AGE DIST PLOT ------------------------
 
-# The input data should be a vector from cell_ages
-# The function will ask for start value i.e "start of tail"
-MLE_plot <- function(data) {
-  plot(0:(length(data)-1), data/sum(data), type = 'l', ylab = '', xlab = 'Ålder')
-  start <- readline(prompt = "Enter starting value: ")
-  tail <- data[-(1:start)]
-  mle <- MLE_geom(tail)
-  print(mle)
-  scaled_data <- tail/sum(tail) 
-  df <- data.frame(scaled_data)
-  df$x <- 0:(length(tail)-1)
-  ggplot(df, aes(x, scaled_data)) + geom_line(aes(x, scaled_data), size = 1) +
-    geom_line(aes(x, dgeom(x,mle)), color = "steelblue", linetype = "twodash")
-  #plot(x, tail/sum(tail), type = 'l', ylab = '', xlab = 'Ålder')
-  #lines(x, dgeom(x,mle), col = 'red')
-}
-                  
+# Plot several geometric distributions in the same plot
+# Parameter g independent of initial biological age
+# --> plot for different values of p
+
+
 # plots one curve of the age distribution
 cell_sim <- function(i,p,n,k,q,trials) {
   ages <- cell_ages(i,p,n,k,q,trials)/trials
   df <- as.data.frame(ages)
   df$t <- 1:length(ages)
-  pl1 <- ggplot(df, aes(t, ages)) + geom_line()
+  pl1 <- ggplot(df, aes(t,ages)) + geom_bar(stat="identity") 
   pl1
 }
 
 # plot several curves in the same plot
-# p is a vector e.g c(0.1, 0.3,0.5)
 age_plot_p <- function(i,p,n,k,q,trials) {
-  theme_set(theme_minimal())
-  age <- cell_ages(i,p[1],n,k,q,trials)/trials
-  df <- as.data.frame(age)
-  df$x <- 1:length(age)
-  df$dataset <- c(rep(p[1], length(age)))
-  
-  #pl <- ggplot() + geom_line(df, mapping = aes(x,age))
-  for(i in 2:length(p)) {
-    age <- cell_ages(i,p[i],n,k,q,trials)/trials
-    df2 <-as.data.frame(age)
-    df2$x <- 1:length(age)
-    df2$dataset <- c(rep(p[i], length(age)))
-    df <- rbind(df, df2)
+  make_df <- function(i,p,n,k,q,trials) {
+    prop = cell_ages(i,p,n,k,q,trials)/trials
+    df <- data.frame(
+      prop = prop,
+      p_value = p,
+      x = 1:length(prop)
+    )
+    return(df)
   }
-  print(df)
-  pl <- ggplot(df, aes(x, age)) + 
-    geom_line(aes(color = factor(dataset), group = dataset), size = 1) 
-  pl
+  df <- do.call("rbind", lapply(p, function(p_) make_df(i,p_,n,k,q,trials)))
+  ggplot(df, aes(x = x, y = prop)) + 
+    geom_line(aes(color = factor(p_value), group = p_value), size = 1) 
 }
 
 # plots age distribution for different starting cells
 # i should be a vector of integers e.g c(0,1)
 age_plot_type <- function(i,p,n,k,q,trials) {
-  theme_set(theme_minimal())
-  age <- cell_ages(i[1],p,n,k,q,trials)/trials
-  df <- as.data.frame(age)
-  df$x <- 0:(length(age)-1)
-  df$dataset <- c(rep(i[1], length(age)))
-  # fult men funkar
-  for(ii in 2:length(i)) {
-    age <- cell_ages(i[ii],p,n,k,q,trials)/trials
-    df2 <-as.data.frame(age)
-    df2$x <- 0:(length(age)-1)
-    df2$dataset <- c(rep(i[ii], length(age)))
-    df <- rbind(df, df2)
+  rep_vec <- function(i,p,n,k,q,trials) {
+    data <- cell_ages(i,p,n,k,q,trials)
+    rep(1:length(data), times = data)
   }
-  col<- c("#999999", "#E69F00", "#56B4E9", "#009E73",
-          "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
-  pl <- ggplot(df, aes(x, age)) + 
-    geom_line(aes(color = factor(dataset),group = dataset), size = 1)
-  pl + scale_color_manual(values = col)
-  # TODO: fixa x-axeln
+  make_df <- function(i,p,n,k,q,trials) {
+    df <- data.frame(age = rep_vec(i,p,n,k,q,trials), type = i)
+    return(df)
+  }
+  df <- do.call("rbind", lapply(i, function(i_) make_df(i_,p,n,k,q,trials)))
+  #ggplot(df, aes(x = type, y = age))
+  ggplot(df, aes(x = type, y = age, group=type)) + geom_boxplot() + coord_flip() +
+    stat_summary(fun=mean, geom="point", shape=4, size=5, color="red", fill="red") 
 }
+
 
 ## ---------------- HELPER FUNCTION ---------------------
 
-# R-convention: The probability of the number Y = X - 1 of 
-# failures before the first succes -> 0 included
-MLE_geom <- function(data) {
-  x <- 0:(length(data)-1)
-  tmp <- rep(x, times = data)
-  n <- length(tmp)
-  n/(sum(tmp)+n) # maximum likelihood parameter
-}
-                  
 # convert to right format (long instead of wide)
 to_long <- function(Z) {
   df = as.data.frame(Z)
@@ -180,42 +175,39 @@ type_frequency <- function(Z) {
   return(df)
 }
 
+tikz(file="plot_test.tex", width = 5, height = 4)
+#plot <-  critical_pl(c(0.1,0.3,0.5), 1:15)
+print(plot)
+dev.off()
 
 ### ------------------ SPECIAL CASE -------------------
 
-# plots the critical value in the (k,n) plane
-# PARAMS: vector of p values ex: c(0.1,0.3,0.5), k = 1:15
-critical_pl <- function(p,k) {
-  df <- critical_df(p[1],k)
-  df$pvalue <- p[1]
-  for(i in 2:length(p)) {
-    df2 <- critical_df(p[i],k)
-    df2$pvalue <- p[i]
-    df <- rbind(df, df2)
-  }
-  ggplot(df, aes(k, crit, color = factor(pvalue))) +
-    geom_line(size = 1) +
-    ggtitle("(Sub)kritiskt $n$ värde") + 
-    xlab("$k$") + ylab("$n$") + theme_light() 
+# Idea maximal nr of proteins a multi-GW process can accumulate
+# without being subcritical (rho \leq 1)
+critical_n <- function(p,k) {
+  df <- lapply(p, function(p_)
+    data.frame(
+      k = k,
+      n = sapply(k, function(k_) find_max_n(p_,k_)),
+      p = p_
+    )
+  )
+  df <- do.call("rbind", df)
+  print(df)
+  ggplot(df, aes(x = k,y = n,color = factor(p))) + geom_point() +
+    scale_color_brewer(palette="Paired") + geom_line(aes(color=factor(p))) +
+    theme_light()
 }
 
 ## ------------------- HELPER FUNCTIONs ---------------
 
-# finds the first n for every k where the the process is subkritical
-critical_n <- function(p, k) {
-  rho <- 100
+# find maximal n where rho > 1
+find_max_n <- function(p,k) {
+  rho <- Inf
   n <- 0
   while(rho > 1) {
     n <- n+1
-    rho <- pf_eigen(M_mat(p,n,k,1,1))[[1]]
+    rho <- rho(p,n,k,1)
   }
-  return(n)
-}
-
-# converts to dataframe
-critical_df <- function(p,k) {
-  crit <- sapply(k, function(k_) critical_n(p,k_))
-  df <- as.data.frame(crit)
-  df$k <- k
-  return(df)
+  return(n-1)
 }
