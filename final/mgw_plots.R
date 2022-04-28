@@ -8,6 +8,23 @@ library(easyGgplot2)
 library(tikzDevice)
 library(EnvStats)
 
+rejuv_mean_plot <- function(p,n,k,q,trials) {
+  init <- 0:k
+  df <- lapply(p, function(p_) {
+    data.frame(
+    mean = sapply(init, function(i_) mean(df_drls(i_,p_,n,k,trials))),
+    type = init,
+    p_value = p_
+    )
+  }
+  )
+  df <- do.call("rbind", df)
+  print(df)
+  ggplot(df, aes(x = type, y = mean, group = p_value)) + 
+    geom_line(aes(color=factor(p_value))) + geom_point(aes(color=factor(p_value))) +
+    scale_color_brewer(palette="Paired") + labs(color = 'p')
+}
+
 ### ------------------ GENERAL CASE -------------------
 
 # plot stable type distribution
