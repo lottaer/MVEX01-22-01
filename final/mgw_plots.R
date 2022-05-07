@@ -25,6 +25,33 @@ rejuv_mean_plot <- function(p,n,k,q,trials) {
     scale_color_brewer(palette="Paired") + labs(color = 'p')
 }
 
+#Using E(d-m)/E(m) make sure to change line in def_drls so it doesnt divide by mothers age there.              
+rejuv_mean_plot2 <- function(p,n,k,q,trials) {
+  init <- 0:k
+  df <- lapply(p, function(p_) {
+    mean_age <- function(i_,p_,n,k,trials) {
+      ages <- cell_ages(i_,p_,n,k,1,trials)
+      mean(rep(1:length(ages),times = ages))
+    }
+    data.frame(
+      mean = sapply(init, function(i_) mean(df_drls(i_,p_,n,k,trials))/mean_age(i_,p_,n,k,trials)),
+      type = init,
+      p_value = p_
+    )
+  }
+  )
+  df <- do.call("rbind", df)
+  print(df)
+  ggplot(df, aes(x = type, y = mean, group = p_value)) + 
+    geom_line(aes(color=factor(p_value))) + geom_point(aes(color=factor(p_value))) +
+    scale_color_brewer(palette="Paired", direction = -1) + labs(color = 'p') +
+    scale_colour_manual(values=c("#78c679", "#238443","#004529" )) +
+    scale_x_continuous(breaks=seq(0,k,1))+
+    scale_y_continuous(breaks=seq(-1,1,0.5),limits = c(-1.2,0.8)) +
+    theme_minimal()
+  
+}               
+               
 ### ------------------ GENERAL CASE -------------------
 
 # plot stable type distribution
