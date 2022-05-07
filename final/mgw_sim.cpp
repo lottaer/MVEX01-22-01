@@ -130,7 +130,7 @@ std::list<double> df_drls(int i, double p, int n, int k, int trials){
         double mage = mth.age;
         for (int i = 0; i < dage.size(); i++) {
           double x = (repcell_age(dage[i], p, n, k, 1)-mage);
-          drls.push_back((double) x); //Dela med moder ålder
+          drls.push_back((double) x); // x/mage to divide by mothers age
           //drls.push_back(cell_age(dage[i], p, n, k)-mage)
         }
         break;
