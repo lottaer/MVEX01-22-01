@@ -45,6 +45,29 @@ int cell_age(int i, double p, int n, int k, double q){
   return(mth.age);
 }
 
+
+// Follows a mothercell until it dies replicative age (will be same as normal while q=1)
+//[[Rcpp::export]]
+int repcell_age(int i, double p, int n, int k, double q){
+  cell mth = {i, 0};
+  while(mth.type <= k) {
+    int def_m = mth.type+n;
+    double U = R::runif(0,1);
+    if(U < q) {
+      mth.age++;
+      int def = R::rbinom(def_m, p);
+      def_m -= def;
+    }
+    if(def_m <= k) {
+      mth.type = def_m;
+    }
+    else{
+      return mth.age;
+    }
+  }
+  return(mth.age);
+}
+
 //----------------------------Rejuvination-Index using  deque-----------------
 // Functions for calculations of rejuvination index
 //Saves daughter types through a mothers life, simulates their age
@@ -89,8 +112,9 @@ std::list<double> df_drls(int i, double p, int n, int k, int trials){
   for (int ii = 0; ii < trials; ii++){
     // ONe trial
     std::deque<int> dage;
-    cell mth = {i, 1};
+    cell mth = {i, 0};
     while(mth.type <= k) {
+      mth.age++;
       int def_m = mth.type+n;
       int def = R::rbinom(def_m, p);
       def_m -= def;
@@ -100,14 +124,13 @@ std::list<double> df_drls(int i, double p, int n, int k, int trials){
       }
       if(def_m <= k) {
         mth.type = def_m;
-        mth.age++;
       }
       else{
         //Simulate all daughter ages and return difference in age to mother
-        double mage = dage.size();
+        double mage = mth.age;
         for (int i = 0; i < dage.size(); i++) {
-          double x = (cell_age(dage[i], p, n, k, 1)-mage);
-          drls.push_back((double) x/mage); //Dela med moder ålder
+          double x = (repcell_age(dage[i], p, n, k, 1)-mage);
+          drls.push_back((double) x); //Dela med moder ålder
           //drls.push_back(cell_age(dage[i], p, n, k)-mage)
         }
         break;
