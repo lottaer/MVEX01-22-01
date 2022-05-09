@@ -13,11 +13,6 @@ library(comprehenr)
 
 ### -------------- SIMULATION ------------------
 
-# proportion of daughters that lives longer than the mother
-prop_rej <- function(data) {
-  sum(data >= 0)/length(data)
-}
-
 # simulation of multi gw, takes mean of trials simulations and returns data frame
 multi_gw_mean <- function(p, n, k, q, hours, Z_0, trials) {
   if(length(Z_0) != k+1) {
@@ -95,6 +90,14 @@ MLE_plot <- function(data) {
     geom_line(aes(x, dgeom(x,mle)), color = "red") 
 }
 
+MLE_data <- function(i,p,n,k,q,trials) {
+  data <- cell_ages(i,p,n,k,q,trials)
+  plot(0:(length(data)-1), data/sum(data), type = 'l', ylab = '', xlab = 'Ålder')
+  start <- readline(prompt = "Enter starting value: ")
+  tail <- data[-(1:start)]
+  MLE_geom(tail)
+}
+
 ## ---------------- M-MATRIX ----------------------- 
 
 # Computation of mean value matrix: M = qA + B
@@ -113,6 +116,7 @@ expected_sz <- function(p, n, k, q, hours, start) {
 }
 
 ## ---------------- PERRON-FROBENIUS ---------------
+
 # perron frobenius eigenvalue and eigenvector of M
 pf_eigen <- function(M) {
   eigs = eigen(t(M))
