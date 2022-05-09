@@ -296,8 +296,44 @@ multi_gw_pl <- function(p, n, k, q, hours, Z_0, trials) {
     return(df)
   }
   
-  tikz(file="plot_test.tex", width = 6, height = 5)
+                     
+                     
+ 
+ #-----------------------Zero-type----------------------------------
+ # Makes plot with age distribution of type-0 cells
+zeroageplot <- function(i,p, n, k, q, hours,trials){
+  My_Theme = theme(
+    axis.title.x = element_text(size = 14),
+    axis.text.x = element_text(size = 12),
+    axis.title.y = element_text(size = 14),
+    axis.text.y = element_text(size = 12))
+  
+  theme_set(theme_minimal())
+  
+  #Gather and treat data
+  df <- zeroagesim(i,p,n,k,q,hours,trials)
+  date <- rep(0,max(df))
+  for (i in 0:max(df)) {
+    date[i+1] <- sum(df == i)/length(df)
+  }
+  #Plot
+  dfnew <- as.data.frame(date)
+  dfnew["x"] <- c(0:max(df))
+  dfnew <- setNames(dfnew, c("Proportion","Ålder"))
+  print(dfnew)
+  p <- ggplot(dfnew, aes(y = Proportion, x=Ålder)) + geom_bar(stat = "identity") +
+  scale_y_continuous(breaks=seq(0,1.1,0.1)) +
+    scale_x_continuous(breaks=seq(0,max(df)+1,1)) + My_Theme +
+    ylab("Proportion av typ-0 celler") + xlab("Kronologisk ålder")
+    
+  return(p)
+  
+}
+
+ #-------------------------------------------------------
+                     
+  #tikz(file="plot_test.tex", width = 6, height = 5)
   #plot <-  critical_pl(c(0.1,0.3,0.5), 1:15)
-  print(plot)
-  dev.off()
+  #print(plot)
+  #dev.off()
   
